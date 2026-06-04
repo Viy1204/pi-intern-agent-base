@@ -34,6 +34,20 @@ lark-cli --version
 
 ## 安装 Pi 实习生基座
 
+Claude Code 用的 `/pi-intern-setup` 入口已经打包在通用基座里，不需要你手动复制配置文件。
+
+它的位置是：
+
+```text
+claude/commands/pi-intern-setup.md
+```
+
+下面这个脚本会自动把它安装到你的 Claude Code 个人命令目录：
+
+```text
+~/.claude/commands/pi-intern-setup.md
+```
+
 如果你已经在用 Claude Code，建议先安装 Claude Code 入口命令：
 
 ```powershell
