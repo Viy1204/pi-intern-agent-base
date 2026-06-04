@@ -50,7 +50,7 @@ lark-cli --version
 ## 安装基座
 
 ```bash
-pi install git:github.com/Viy1204/pi-intern-agent-base@v0.1.0
+pi install git:github.com/Viy1204/pi-intern-agent-base@v0.1.1
 ```
 
 私有仓库需要先确认安装者已经被加入 GitHub 仓库权限。
@@ -125,7 +125,7 @@ Copy-Item -Recurse -Force .\claude\skills\pi-intern-base-installer "$HOME\.claud
 HR 授权同事可额外安装：
 
 ```bash
-pi install git:github.com/Viy1204/pi-intern-hr-pack@v0.1.0
+pi install git:github.com/Viy1204/pi-intern-hr-pack@v0.1.1
 ```
 
 ## 常见问题

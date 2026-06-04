@@ -20,9 +20,6 @@ function Find-GitBashPath {
     Select-Object -First 1
   if ($configured) { return $configured }
 
-  $cmd = Get-Command "bash" -ErrorAction SilentlyContinue
-  if ($cmd) { return $cmd.Source }
-
   $candidates = @(
     "C:\Program Files\Git\usr\bin\bash.exe",
     "C:\Program Files\Git\bin\bash.exe"
@@ -30,6 +27,9 @@ function Find-GitBashPath {
   foreach ($candidate in $candidates) {
     if (Test-Path -LiteralPath $candidate) { return $candidate }
   }
+
+  $cmd = Get-Command "bash" -ErrorAction SilentlyContinue
+  if ($cmd) { return $cmd.Source }
   return ""
 }
 

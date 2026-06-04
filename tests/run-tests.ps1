@@ -18,7 +18,7 @@ function Assert-True {
 
 function Invoke-Install {
   param([string[]]$CliArgs)
-  $output = & powershell -NoProfile -ExecutionPolicy Bypass -File $scriptPath @CliArgs
+  $output = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $scriptPath @CliArgs
   $code = $LASTEXITCODE
   [pscustomobject]@{
     Code = $code
@@ -118,7 +118,7 @@ foreach ($needle in $forbidden) {
 
 $claudeBaseSkill = Get-Content -Raw -Encoding UTF8 -LiteralPath $claudeBaseSkillPath
 Assert-True ($claudeBaseSkill.Contains("name: pi-intern-base-installer")) "Claude base installer skill has wrong name."
-Assert-True ($claudeBaseSkill.Contains("pi install git:github.com/Viy1204/pi-intern-agent-base@v0.1.0")) "Claude base installer skill missing base install command."
+Assert-True ($claudeBaseSkill.Contains("pi install git:github.com/Viy1204/pi-intern-agent-base@v0.1.1")) "Claude base installer skill missing base install command."
 Assert-True ($claudeBaseSkill.Contains((From-Utf8Hex "e4b88de8a681e4bb8ee69cac20736b696c6c20e5ae89e8a38520485220e58c85"))) "Claude base installer skill missing HR guard."
 Assert-True ($claudeBaseSkill.Contains("/login")) "Claude base installer skill must mention /login."
 Assert-True ($claudeBaseSkill.Contains("/feishu setup")) "Claude base installer skill must mention /feishu setup."
@@ -130,7 +130,7 @@ Assert-True ($piSetupSkill.Contains("/login")) "Pi setup skill must mention /log
 Assert-True ($piSetupSkill.Contains("/feishu setup")) "Pi setup skill must mention /feishu setup."
 Assert-True ($piSetupSkill.Contains("/feishu restart")) "Pi setup skill must mention /feishu restart."
 
-$checkOutput = & powershell -NoProfile -ExecutionPolicy Bypass -File $checkScriptPath
+$checkOutput = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $checkScriptPath
 $checkJson = $checkOutput | ConvertFrom-Json
 $checkFields = @($checkJson.PSObject.Properties.Name)
 Assert-True ($checkFields -contains "bashPath") "Environment check must report bashPath."
@@ -177,7 +177,7 @@ try {
   Assert-True (Test-Path -LiteralPath $globalForced.Json.backup) "Global backup file was not created."
   Assert-True ((Get-Content -Raw -Encoding UTF8 -LiteralPath $globalAgents) -eq $template) "Global AGENTS.md content mismatch."
 
-  $dryBase = & powershell -NoProfile -ExecutionPolicy Bypass -File $claudeBaseInstallScriptPath -Workspace $emptyWorkspace -DryRun
+  $dryBase = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $claudeBaseInstallScriptPath -Workspace $emptyWorkspace -DryRun
   $dryBaseJson = $dryBase | ConvertFrom-Json
   Assert-True ($null -ne $dryBaseJson.checks) "Expected base installer dry run to report checks."
   Assert-True ($null -ne $dryBaseJson.bridge) "Expected base installer dry run to report bridge check."

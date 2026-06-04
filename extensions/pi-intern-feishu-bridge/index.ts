@@ -514,14 +514,15 @@ function notifyFirstRunIfNeeded(ctx: any) {
 
 function resolveBashPath() {
   const configured = process.env.FEISHU_BRIDGE_BASH?.trim() || process.env.PI_FEISHU_BASH?.trim();
+  const windowsGitBash = process.platform === "win32" ? [
+    "C:\\Program Files\\Git\\usr\\bin\\bash.exe",
+    "C:\\Program Files\\Git\\bin\\bash.exe",
+  ] : [];
   const candidates = [
     configured,
+    ...windowsGitBash,
     findExecutableOnPath("bash"),
     findExecutableOnPath("bash.exe"),
-    ...(process.platform === "win32" ? [
-      "C:\\Program Files\\Git\\usr\\bin\\bash.exe",
-      "C:\\Program Files\\Git\\bin\\bash.exe",
-    ] : []),
     "bash",
   ].filter((item): item is string => Boolean(item));
 

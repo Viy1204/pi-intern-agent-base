@@ -57,7 +57,7 @@ Copy-Item -Recurse -Force .\claude\skills\pi-intern-base-installer "$HOME\.claud
 如果不使用 Claude Code，则直接安装 Pi 基座：
 
 ```bash
-pi install git:github.com/Viy1204/pi-intern-agent-base@v0.1.0
+pi install git:github.com/Viy1204/pi-intern-agent-base@v0.1.1
 ```
 
 私有仓库需要先确认你有 GitHub 访问权限。

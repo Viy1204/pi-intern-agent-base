@@ -96,7 +96,7 @@ Copy-Item -Recurse -Force .\claude\skills\pi-intern-base-installer "$HOME\.claud
 确认你已经有 GitHub 私有仓库访问权限后，在终端执行：
 
 ```bash
-pi install git:github.com/Viy1204/pi-intern-agent-base@v0.1.0
+pi install git:github.com/Viy1204/pi-intern-agent-base@v0.1.1
 ```
 
 如果提示没有权限，请联系管理员把你加入仓库权限名单。

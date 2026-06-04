@@ -121,11 +121,11 @@ function Find-GitBashPath {
     Where-Object { $_ -and (Test-Path -LiteralPath $_) } |
     Select-Object -First 1
   if ($configured) { return $configured }
-  $cmd = Get-Command "bash" -ErrorAction SilentlyContinue
-  if ($cmd) { return $cmd.Source }
   foreach ($candidate in @("C:\Program Files\Git\usr\bin\bash.exe", "C:\Program Files\Git\bin\bash.exe")) {
     if (Test-Path -LiteralPath $candidate) { return $candidate }
   }
+  $cmd = Get-Command "bash" -ErrorAction SilentlyContinue
+  if ($cmd) { return $cmd.Source }
   return ""
 }
 
@@ -248,7 +248,7 @@ if (-not $Yes) {
   exit 10
 }
 
-$install = Invoke-Native "pi" @("install", "git:github.com/Viy1204/pi-intern-agent-base@v0.1.0")
+$install = Invoke-Native "pi" @("install", "git:github.com/Viy1204/pi-intern-agent-base@v0.1.1")
 $result.install = [ordered]@{
   package = "pi-intern-agent-base"
   exitCode = $install.exitCode

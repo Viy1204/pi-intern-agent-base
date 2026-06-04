@@ -1,6 +1,6 @@
 {
   "name": "pi-intern-agent-base",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Pi intern agent base package with common office skills, Lark skills, Feishu bridge, and setup guidance.",
   "keywords": [
@@ -37,6 +37,6 @@
     "axios": "^1.17.0"
   },
   "scripts": {
-    "test": "powershell -NoProfile -ExecutionPolicy Bypass -File tests/run-tests.ps1"
+    "test": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests/run-tests.ps1"
   }
 }

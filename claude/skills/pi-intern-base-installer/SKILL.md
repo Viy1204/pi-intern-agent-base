@@ -12,7 +12,7 @@ description: Use this skill whenever the user wants Claude Code to install, conf
 - 检查本机是否有 `git`、`node`、`npm`、`bash`、`pi`、`lark-cli`。
 - 检查 Node 子进程是否能启动 Git Bash，避免飞书 bridge 报 `spawn bash ENOENT`。
 - 检查是否能访问 GitHub 私有仓库 `Viy1204/pi-intern-agent-base`。
-- 安装通用 Pi 实习生基座：`pi install git:github.com/Viy1204/pi-intern-agent-base@v0.1.0`。
+- 安装通用 Pi 实习生基座：`pi install git:github.com/Viy1204/pi-intern-agent-base@v0.1.1`。
 - 在当前工作区安装 `.pi/AGENTS.md`，已有文件时不覆盖。
 - 检查飞书/Lark CLI 登录状态，但不输出 token、appSecret、cookie。
 - 失败时给用户一份小白可读的检查清单。
