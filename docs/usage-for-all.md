@@ -32,6 +32,26 @@ lark-cli --version
 
 如果有命令提示“不存在”或“无法识别”，把截图发给管理员处理。
 
+## 缺工具时怎么安装
+
+如果上面的检查命令有失败，优先按下面方式补装。装完后，请关闭并重新打开 Claude Code 或终端，再重新检查。
+
+| 缺少工具 | Windows 安装命令 | 官网 / 说明 |
+| --- | --- | --- |
+| `winget` | 无一行命令，按 Microsoft 说明安装或修复 App Installer | https://learn.microsoft.com/windows/package-manager/winget/ |
+| `git` | `winget install --id Git.Git -e --source winget` | https://git-scm.com/download/win |
+| `node` / `npm` | `winget install --id OpenJS.NodeJS.LTS -e --source winget` | https://nodejs.org/en/download |
+| `claude` | `npm install -g @anthropic-ai/claude-code` | https://docs.claude.com/en/docs/claude-code/setup |
+| `pi` | `npm install -g @earendil-works/pi-coding-agent` | https://www.npmjs.com/package/@earendil-works/pi-coding-agent |
+| `lark-cli` | `npx @larksuite/cli@latest install` | https://github.com/larksuite/cli |
+
+`lark-cli` 安装后，还需要继续配置飞书：
+
+```powershell
+lark-cli config init --new
+lark-cli auth login
+```
+
 ## 安装 Pi 实习生基座
 
 Claude Code 用的安装 skill 已经打包好，文件名是：

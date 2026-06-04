@@ -34,6 +34,19 @@ lark-cli --version
 
 如果 `lark-cli --version` 暂时失败，也可以先安装基座，之后在初始化流程里继续处理飞书配置。
 
+## 缺工具时怎么安装
+
+| 缺少工具 | Windows 安装命令 | 官网 / 说明 |
+| --- | --- | --- |
+| `winget` | 按 Microsoft 说明安装或修复 App Installer | https://learn.microsoft.com/windows/package-manager/winget/ |
+| `git` | `winget install --id Git.Git -e --source winget` | https://git-scm.com/download/win |
+| `node` / `npm` | `winget install --id OpenJS.NodeJS.LTS -e --source winget` | https://nodejs.org/en/download |
+| `claude` | `npm install -g @anthropic-ai/claude-code` | https://docs.claude.com/en/docs/claude-code/setup |
+| `pi` | `npm install -g @earendil-works/pi-coding-agent` | https://www.npmjs.com/package/@earendil-works/pi-coding-agent |
+| `lark-cli` | `npx @larksuite/cli@latest install` | https://github.com/larksuite/cli |
+
+安装新工具后，重新打开 Claude Code 或终端。
+
 ## 安装基座
 
 ```bash

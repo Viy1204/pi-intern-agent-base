@@ -18,6 +18,59 @@ function Test-Tool {
   }
 }
 
+function Get-InstallGuide {
+  param([string]$Name)
+  $guides = @{
+    "winget" = [ordered]@{
+      name = "Windows Package Manager"
+      command = $null
+      url = "https://learn.microsoft.com/windows/package-manager/winget/"
+      note = "Install or repair winget from Microsoft App Installer, then reopen the terminal."
+    }
+    "git" = [ordered]@{
+      name = "Git for Windows"
+      command = "winget install --id Git.Git -e --source winget"
+      url = "https://git-scm.com/download/win"
+      note = "Reopen Claude Code or the terminal after installation."
+    }
+    "node" = [ordered]@{
+      name = "Node.js LTS"
+      command = "winget install --id OpenJS.NodeJS.LTS -e --source winget"
+      url = "https://nodejs.org/en/download"
+      note = "This also installs npm. Reopen Claude Code or the terminal after installation."
+    }
+    "npm" = [ordered]@{
+      name = "npm"
+      command = "winget install --id OpenJS.NodeJS.LTS -e --source winget"
+      url = "https://nodejs.org/en/download"
+      note = "npm is installed with Node.js LTS."
+    }
+    "claude" = [ordered]@{
+      name = "Claude Code"
+      command = "npm install -g @anthropic-ai/claude-code"
+      url = "https://docs.claude.com/en/docs/claude-code/setup"
+      note = "Requires Node.js/npm first."
+    }
+    "pi" = [ordered]@{
+      name = "Pi Coding Agent"
+      command = "npm install -g @earendil-works/pi-coding-agent"
+      url = "https://www.npmjs.com/package/@earendil-works/pi-coding-agent"
+      note = "Requires Node.js/npm first."
+    }
+    "lark-cli" = [ordered]@{
+      name = "Lark/Feishu CLI"
+      command = "npx @larksuite/cli@latest install"
+      url = "https://github.com/larksuite/cli"
+      note = "After install, run: lark-cli config init --new; lark-cli auth login"
+    }
+  }
+  if ($guides.ContainsKey($Name)) {
+    $guides[$Name]
+  } else {
+    [ordered]@{ name = $Name; command = $null; url = $null; note = "Ask the administrator for the installation method." }
+  }
+}
+
 function Invoke-Native {
   param([string]$File, [string[]]$Arguments)
   $output = & $File @Arguments 2>&1
@@ -47,12 +100,15 @@ $result = [ordered]@{
   missingRequired = @()
   missingOptional = @()
   githubAccess = $null
+  installGuides = @()
   install = $null
   agents = $null
   lark = $null
 }
 
 $checks = @(
+  (Test-Tool "winget" $false),
+  (Test-Tool "claude" $false),
   (Test-Tool "git" $true),
   (Test-Tool "node" $true),
   (Test-Tool "npm" $true),
@@ -64,6 +120,8 @@ $checks = @(
 $result.checks = $checks
 $result.missingRequired = @($checks | Where-Object { $_.required -and -not $_.available } | ForEach-Object { $_.name })
 $result.missingOptional = @($checks | Where-Object { -not $_.required -and -not $_.available } | ForEach-Object { $_.name })
+$missingAll = @($result.missingRequired + $result.missingOptional | Select-Object -Unique)
+$result.installGuides = @($missingAll | ForEach-Object { Get-InstallGuide $_ })
 
 if ($result.missingRequired.Count -gt 0) {
   $result.ok = $false

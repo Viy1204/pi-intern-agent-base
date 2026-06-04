@@ -60,8 +60,12 @@ description: Use this skill whenever the user wants Claude Code to install, conf
 
 ## Common Fixes
 
-- `git` 不存在：安装 Git for Windows，并重新打开 Claude Code。
-- `node` 或 `npm` 不存在：安装 Node.js LTS，并重新打开 Claude Code。
-- `pi` 不存在：安装 Pi Agent 或公司指定的兼容客户端。
+- `git` 不存在：运行 `winget install --id Git.Git -e --source winget`。官网：https://git-scm.com/download/win
+- `node` 或 `npm` 不存在：运行 `winget install --id OpenJS.NodeJS.LTS -e --source winget`。官网：https://nodejs.org/en/download
+- `claude` 不存在：先安装 Node.js，再运行 `npm install -g @anthropic-ai/claude-code`。官方文档：https://docs.claude.com/en/docs/claude-code/setup
+- `pi` 不存在：先安装 Node.js，再运行 `npm install -g @earendil-works/pi-coding-agent`。npm：https://www.npmjs.com/package/@earendil-works/pi-coding-agent
+- `lark-cli` 不存在：先安装 Node.js，再运行 `npx @larksuite/cli@latest install`。GitHub：https://github.com/larksuite/cli
 - GitHub 没权限：请管理员把用户加入 `Viy1204/pi-intern-agent-base` 私有仓库。
-- `lark-cli` 不存在：先完成基座安装，再按公司飞书 CLI 指引配置。
+- `winget` 不存在：打开 Microsoft 官方说明安装 Windows Package Manager：https://learn.microsoft.com/windows/package-manager/winget/
+
+每次安装新工具后，请让用户关闭并重新打开 Claude Code 或终端，再重新运行本 skill。
