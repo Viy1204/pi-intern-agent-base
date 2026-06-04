@@ -42,6 +42,10 @@ pi install git:github.com/Viy1204/pi-intern-agent-base@v0.1.0
 
 私有仓库需要先确认安装者已经被加入 GitHub 仓库权限。
 
+## 给同事看的简版说明
+
+可直接转发这份文档：[Pi 实习生智能体使用说明](docs/usage-for-all.md)。
+
 ## 初始化
 
 安装完成后，打开 Pi，对它说：
