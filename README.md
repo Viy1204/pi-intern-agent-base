@@ -92,7 +92,22 @@ Copy-Item -Recurse -Force .\claude\skills\pi-intern-base-installer "$HOME\.claud
 - 询问是否安装通用 `AGENTS.md`。
 - 默认把通用行为规范写入当前工作区 `.pi/AGENTS.md`。
 - 如选择全局写入 `~/.pi/agent/AGENTS.md`，会先备份已有文件。
-- 引导 `/feishu setup` 和 `/feishu status`。
+- 引导 `/login`、`/feishu setup`、`/feishu status`。
+- 如果飞书插件没反应，引导 `/feishu restart`。
+
+第一次启动 Pi 时，建议按这个顺序：
+
+```text
+/login
+/feishu setup
+/feishu status
+```
+
+如果 `/feishu setup` 后没有反应，先试：
+
+```text
+/feishu restart
+```
 
 ## 飞书能力
 
@@ -130,6 +145,40 @@ pi install git:github.com/Viy1204/pi-intern-hr-pack@v0.1.0
 ### 没有 GitHub 权限
 
 请仓库管理员把同事加入私有仓库访问名单。没有权限时，`pi install git:...` 会拉取失败。
+
+如果 `git ls-remote` 或安装器提示 `Repository not found`，通常不是仓库名错，而是当前 GitHub 账号还没有私有仓库权限。
+
+如果弹出 GitHub 登录窗口后被取消，重新运行：
+
+```powershell
+git ls-remote https://github.com/Viy1204/pi-intern-agent-base.git HEAD
+```
+
+按 Git Credential Manager 提示完成登录后，再重新安装。
+
+### spawn bash ENOENT
+
+飞书 bridge 后台进程依赖 Git Bash。安装 Git for Windows 后，确认下面命令可用：
+
+```powershell
+bash --version
+```
+
+如果仍报 `spawn bash ENOENT`，把 `C:\Program Files\Git\usr\bin` 加到用户 PATH，关闭并重新打开终端。
+
+### No models available
+
+说明 Pi 还没配置模型/API。启动 Pi 后先运行：
+
+```text
+/login
+```
+
+按提示配置 API key、OAuth 或模型 provider。
+
+### Skill conflicts 里显示 skipped
+
+Pi 启动时如果看到某些 skill 显示 `(skipped)`，通常只是同名 skill 已经在用户目录存在，不等于安装失败。优先看真正的 error 行。
 
 ### 飞书权限不足
 

@@ -111,6 +111,25 @@ pi install git:github.com/Viy1204/pi-intern-agent-base@v0.1.0
 
 它会一步步检查环境，并引导你完成飞书配置。看到检查结果后，按它的提示继续即可。
 
+第一次打开 Pi 时，如果还没有配置模型/API，请先输入：
+
+```text
+/login
+```
+
+按提示配置 API key、OAuth 或模型 provider。然后继续配置飞书插件：
+
+```text
+/feishu setup
+/feishu status
+```
+
+如果 `/feishu setup` 后没有反应，先输入：
+
+```text
+/feishu restart
+```
+
 ## 怎么提需求
 
 尽量把“目标、材料、输出形式”说清楚。
@@ -146,9 +165,25 @@ pi install git:github.com/Viy1204/pi-intern-agent-base@v0.1.0
 
 先检查 GitHub 权限、网络、Git 是否正常。
 
+如果提示 `Repository not found`，通常是当前 GitHub 账号还没有私有仓库权限。请联系管理员加入仓库。
+
+如果弹出 GitHub 登录窗口后被取消，可以重新运行：
+
+```powershell
+git ls-remote https://github.com/Viy1204/pi-intern-agent-base.git HEAD
+```
+
+按提示登录后，再重新安装。
+
 ### 飞书操作失败
 
 先执行初始化里的飞书配置。如果仍失败，把报错发给管理员，但不要发送 token、appSecret 或 cookie。
+
+如果看到 `spawn bash ENOENT`，说明飞书插件找不到 Git Bash。安装 Git for Windows，或把 `C:\Program Files\Git\usr\bin` 加到用户 PATH，然后关闭并重新打开终端。
+
+如果看到 `No models available`，说明还没配置模型/API，先运行 `/login`。
+
+如果启动时看到很多 skill 的 `(skipped)`，通常只是同名 skill 已经存在，不代表安装失败。
 
 ### 不知道该怎么问
 

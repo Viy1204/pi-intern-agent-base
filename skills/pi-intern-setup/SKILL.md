@@ -13,7 +13,9 @@ description: "Pi 实习生智能体基座安装检查。用于首次安装或修
 2. 询问是否安装基座 `AGENTS.md`。
 3. 检查 `lark-cli` 是否可用；不可用时输出安装/配置检查清单。
 4. 引导用户运行 `/feishu setup` 配置飞书机器人桥接。
-5. 引导用户运行 `/feishu status`，并在飞书里给机器人发送测试消息。
+5. 引导用户先运行 `/login` 配置 API key、OAuth 或模型 provider。
+6. 引导用户运行 `/feishu status`，并在飞书里给机器人发送测试消息。
+7. 如果飞书插件没反应，优先运行 `/feishu restart`，再查看 `/feishu status` 和 `/feishu debug`。
 
 ## 环境检查
 
@@ -28,6 +30,16 @@ powershell -NoProfile -ExecutionPolicy Bypass -File $checkScript
 ```
 
 检查结果中如果 `bash` 不可用，提示用户安装 Git for Windows，并把 `C:\Program Files\Git\bin` 加到 PATH。Windows 下 bridge 后台进程依赖 `bash`。
+
+重点看这些字段：
+
+- `bridgeReady`: false 时，飞书 bridge 后台进程可能会报 `spawn bash ENOENT`。
+- `bashPath`: 应该能定位到 Git Bash，例如 `C:\Program Files\Git\usr\bin\bash.exe`。
+- `nodeCanSpawnBash`: false 时，说明 Node 子进程仍找不到 bash；让用户关闭并重新打开终端，或在用户确认后运行：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File $checkScript -FixGitBashPath
+```
 
 ## 安装 AGENTS.md
 
@@ -72,6 +84,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File $script -Scope global
 /feishu start
 /feishu status
 /feishu debug
+/feishu restart
 /feishu stop
 ```
 
@@ -79,6 +92,13 @@ powershell -NoProfile -ExecutionPolicy Bypass -File $script -Scope global
 
 - `lark-cli`：Pi 主动操作飞书 API。
 - `pi-intern-feishu-bridge`：飞书消息进入 Pi。
+
+首次启动 Pi 时，按这个顺序完成：
+
+1. `/login`：配置模型/API。看到 `No models available` 时就是这一步没做。
+2. `/feishu setup`：配置飞书插件。
+3. `/feishu status`：检查连接状态。
+4. `/feishu restart`：如果 setup 后没反应或状态卡住，先重启飞书连接。
 
 ## 规则
 

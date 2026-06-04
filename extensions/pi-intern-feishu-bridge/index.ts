@@ -1,9 +1,10 @@
 import { existsSync, mkdirSync, openSync, readFileSync, rmSync, statSync } from "node:fs";
 import { spawn, spawnSync } from "node:child_process";
+import { delimiter, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { buildModelCard, buildResumeCard, parseModelActionValue, parseResumePageActionValue, parseResumeSelectActionValue } from "./cards.js";
-import { BRIDGE_PATH, CHILD_SESSION_ENV, CONFIG_PATH, DAEMON_LOG_PATH, DEBUG_LOG_PATH, DEDUPE_PATH, ensureRoot, loadConfig, mask, removePath, STATE_PATH, writeJson } from "./config.js";
+import { BRIDGE_PATH, CHILD_SESSION_ENV, CONFIG_PATH, DAEMON_LOG_PATH, DEBUG_LOG_PATH, DEDUPE_PATH, ensureRoot, FIRST_RUN_PATH, loadConfig, mask, readJson, removePath, STATE_PATH, writeJson } from "./config.js";
 import { debugLog } from "./debug.js";
 import { FeishuBridgeRuntime } from "./bridge-runtime.js";
 import { FeishuBridgeStore } from "./bridge-store.js";
@@ -256,10 +257,29 @@ export default function feishuExtension(pi: ExtensionAPI) {
     return `tail -f /dev/null | exec ${quoteShell(piBin)} ${args.map(quoteShell).join(" ")}`;
   }
 
+  function buildDaemonEnv(bashPath: string) {
+    const env = { ...process.env, PI_FEISHU_DAEMON: "1" };
+    const bashDir = bashPath.includes("\\") || bashPath.includes("/") ? dirname(bashPath) : "";
+    if (!bashDir) return env;
+
+    const existingPath = env.Path || env.PATH || "";
+    const pathParts = existingPath.split(delimiter).filter(Boolean);
+    if (!pathParts.some((part) => part.toLowerCase() === bashDir.toLowerCase())) {
+      pathParts.unshift(bashDir);
+    }
+    env.Path = pathParts.join(delimiter);
+    env.PATH = env.Path;
+    return env;
+  }
+
   async function startDaemon(takeover = false) {
     return withDaemonSpawnLock(async () => {
       const cfg = loadConfig();
       if (!cfg) throw new Error(`Missing config. Run /feishu setup first. 配置不存在，请先运行 /feishu setup。`);
+      const bashPath = resolveBashPath();
+      if (!bashPath) {
+        throw new Error("找不到 Git Bash，飞书连接无法启动。请安装 Git for Windows，或把 C:\\Program Files\\Git\\usr\\bin 加到 PATH；也可以设置 FEISHU_BRIDGE_BASH 指向 bash.exe。");
+      }
       let owner = readGatewayOwner();
       if (owner && owner.pid !== process.pid && !takeover) {
         return { status: "busy" as const, owner };
@@ -282,10 +302,10 @@ export default function feishuExtension(pi: ExtensionAPI) {
       reapDetachedDaemonProcesses({ keepPids: [process.pid] });
       ensureRoot();
       const logFd = openSync(DAEMON_LOG_PATH, "a");
-      const child = spawn("bash", ["-lc", daemonCommand()], {
+      const child = spawn(bashPath, ["-lc", daemonCommand()], {
         detached: true,
         cwd: process.cwd(),
-        env: { ...process.env, PI_FEISHU_DAEMON: "1" },
+        env: buildDaemonEnv(bashPath),
         stdio: ["ignore", logFd, logFd],
       });
       child.unref();
@@ -445,6 +465,7 @@ export default function feishuExtension(pi: ExtensionAPI) {
   pi.on("session_start", async (_event, ctx) => {
     uiRef = ctx.ui as any;
     startStatusRefresh();
+    notifyFirstRunIfNeeded(ctx);
   });
 
   if (bootConfig?.autoStart !== false) {
@@ -471,6 +492,54 @@ export default function feishuExtension(pi: ExtensionAPI) {
     await stop();
     clearStatus();
   });
+}
+
+function notifyFirstRunIfNeeded(ctx: any) {
+  if (loadConfig()) return;
+  const state = readJson<{ shownAt?: string }>(FIRST_RUN_PATH, {});
+  if (state.shownAt) return;
+
+  ensureRoot();
+  writeJson(FIRST_RUN_PATH, { shownAt: new Date().toISOString(), version: 1 });
+  ctx.ui.notify(
+    [
+      "首次使用 Pi 实习生前，请先完成两步配置：",
+      "1. 运行 /login，配置 API key、OAuth 或模型 provider。",
+      "2. 运行 /feishu setup，配置飞书插件。",
+      "如果飞书插件配置后没反应，运行 /feishu restart，再用 /feishu status 检查状态。",
+    ].join("\n"),
+    "info",
+  );
+}
+
+function resolveBashPath() {
+  const configured = process.env.FEISHU_BRIDGE_BASH?.trim() || process.env.PI_FEISHU_BASH?.trim();
+  const candidates = [
+    configured,
+    findExecutableOnPath("bash"),
+    findExecutableOnPath("bash.exe"),
+    ...(process.platform === "win32" ? [
+      "C:\\Program Files\\Git\\usr\\bin\\bash.exe",
+      "C:\\Program Files\\Git\\bin\\bash.exe",
+    ] : []),
+    "bash",
+  ].filter((item): item is string => Boolean(item));
+
+  for (const candidate of candidates) {
+    if ((candidate.includes("\\") || candidate.includes("/")) && !existsSync(candidate)) continue;
+    const result = spawnSync(candidate, ["--version"], { encoding: "utf8", windowsHide: true });
+    if (result.status === 0) return candidate;
+  }
+  return undefined;
+}
+
+function findExecutableOnPath(name: string) {
+  const pathValue = process.env.Path || process.env.PATH || "";
+  for (const dir of pathValue.split(delimiter).filter(Boolean)) {
+    const candidate = join(dir, name);
+    if (existsSync(candidate)) return candidate;
+  }
+  return undefined;
 }
 
 function parseCopyMarkdownActionValue(value: unknown): { copySourceId: string } | undefined {

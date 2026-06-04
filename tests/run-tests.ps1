@@ -6,6 +6,7 @@ $scriptPath = Join-Path $repoRoot "skills\pi-intern-setup\scripts\install-agents
 $checkScriptPath = Join-Path $repoRoot "skills\pi-intern-setup\scripts\check-environment.ps1"
 $claudeBaseSkillPath = Join-Path $repoRoot "claude\skills\pi-intern-base-installer\SKILL.md"
 $claudeBaseInstallScriptPath = Join-Path $repoRoot "claude\skills\pi-intern-base-installer\scripts\install-pi-intern-base.ps1"
+$piSetupSkillPath = Join-Path $repoRoot "skills\pi-intern-setup\SKILL.md"
 $packagePath = Join-Path $repoRoot "package.json"
 
 function Assert-True {
@@ -39,6 +40,7 @@ Assert-True (Test-Path -LiteralPath $scriptPath) "Missing install script."
 Assert-True (Test-Path -LiteralPath $checkScriptPath) "Missing environment check script."
 Assert-True (Test-Path -LiteralPath $claudeBaseSkillPath) "Missing Claude Code base installer skill."
 Assert-True (Test-Path -LiteralPath $claudeBaseInstallScriptPath) "Missing Claude Code base installer script."
+Assert-True (Test-Path -LiteralPath $piSetupSkillPath) "Missing Pi setup skill."
 Assert-True (Test-Path -LiteralPath $packagePath) "Missing package.json."
 
 $pkg = Get-Content -Raw -Encoding UTF8 -LiteralPath $packagePath | ConvertFrom-Json
@@ -52,6 +54,13 @@ Assert-True ($null -ne $pkg.dependencies."@larksuiteoapi/node-sdk") "Missing Lar
 
 $bridgePath = Join-Path $repoRoot "extensions\pi-intern-feishu-bridge\index.ts"
 Assert-True (Test-Path -LiteralPath $bridgePath) "Missing bridge index.ts."
+$bridgeSource = Get-Content -Raw -Encoding UTF8 -LiteralPath $bridgePath
+Assert-True ($bridgeSource.Contains("resolveBashPath")) "Bridge must resolve bash path before spawning daemon."
+Assert-True ($bridgeSource.Contains("FEISHU_BRIDGE_BASH")) "Bridge must support FEISHU_BRIDGE_BASH."
+Assert-True ($bridgeSource.Contains("PI_FEISHU_BASH")) "Bridge must support PI_FEISHU_BASH."
+Assert-True ($bridgeSource.Contains("FIRST_RUN_PATH")) "Bridge must track first-run onboarding prompt."
+Assert-True ($bridgeSource.Contains("/feishu restart")) "Bridge first-run prompt must mention /feishu restart."
+Assert-True (-not $bridgeSource.Contains('spawn("bash"')) "Bridge must not spawn bare bash."
 
 $baseSkillNames = Get-ChildItem -Path (Join-Path $repoRoot "skills") -Directory | Select-Object -ExpandProperty Name
 $forbiddenBaseSkills = @(
@@ -111,6 +120,23 @@ $claudeBaseSkill = Get-Content -Raw -Encoding UTF8 -LiteralPath $claudeBaseSkill
 Assert-True ($claudeBaseSkill.Contains("name: pi-intern-base-installer")) "Claude base installer skill has wrong name."
 Assert-True ($claudeBaseSkill.Contains("pi install git:github.com/Viy1204/pi-intern-agent-base@v0.1.0")) "Claude base installer skill missing base install command."
 Assert-True ($claudeBaseSkill.Contains((From-Utf8Hex "e4b88de8a681e4bb8ee69cac20736b696c6c20e5ae89e8a38520485220e58c85"))) "Claude base installer skill missing HR guard."
+Assert-True ($claudeBaseSkill.Contains("/login")) "Claude base installer skill must mention /login."
+Assert-True ($claudeBaseSkill.Contains("/feishu setup")) "Claude base installer skill must mention /feishu setup."
+Assert-True ($claudeBaseSkill.Contains("/feishu restart")) "Claude base installer skill must mention /feishu restart."
+Assert-True ($claudeBaseSkill.Contains("spawn bash ENOENT")) "Claude base installer skill must mention spawn bash ENOENT."
+
+$piSetupSkill = Get-Content -Raw -Encoding UTF8 -LiteralPath $piSetupSkillPath
+Assert-True ($piSetupSkill.Contains("/login")) "Pi setup skill must mention /login."
+Assert-True ($piSetupSkill.Contains("/feishu setup")) "Pi setup skill must mention /feishu setup."
+Assert-True ($piSetupSkill.Contains("/feishu restart")) "Pi setup skill must mention /feishu restart."
+
+$checkOutput = & powershell -NoProfile -ExecutionPolicy Bypass -File $checkScriptPath
+$checkJson = $checkOutput | ConvertFrom-Json
+$checkFields = @($checkJson.PSObject.Properties.Name)
+Assert-True ($checkFields -contains "bashPath") "Environment check must report bashPath."
+Assert-True ($checkFields -contains "nodeCanSpawnBash") "Environment check must report nodeCanSpawnBash."
+Assert-True ($checkFields -contains "bridgeReady") "Environment check must report bridgeReady."
+Assert-True ($checkFields -contains "recommendedFixes") "Environment check must report recommendedFixes."
 
 $tmpRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("pi-intern-agent-base-test-" + [guid]::NewGuid().ToString("N"))
 New-Item -ItemType Directory -Path $tmpRoot | Out-Null
@@ -154,6 +180,8 @@ try {
   $dryBase = & powershell -NoProfile -ExecutionPolicy Bypass -File $claudeBaseInstallScriptPath -Workspace $emptyWorkspace -DryRun
   $dryBaseJson = $dryBase | ConvertFrom-Json
   Assert-True ($null -ne $dryBaseJson.checks) "Expected base installer dry run to report checks."
+  Assert-True ($null -ne $dryBaseJson.bridge) "Expected base installer dry run to report bridge check."
+  Assert-True ($null -ne $dryBaseJson.firstLaunchSteps) "Expected base installer dry run to report first launch steps."
 } finally {
   Remove-Item -Recurse -Force -LiteralPath $tmpRoot
 }

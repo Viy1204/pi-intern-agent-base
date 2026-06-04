@@ -10,6 +10,7 @@ export const DEBUG_LOG_PATH = join(ROOT_DIR, "debug.log");
 export const DAEMON_LOG_PATH = join(ROOT_DIR, "daemon.log");
 export const DEDUPE_PATH = join(ROOT_DIR, "dedupe.json");
 export const BRIDGE_PATH = join(ROOT_DIR, "bridge.json");
+export const FIRST_RUN_PATH = join(ROOT_DIR, "first-run.json");
 export const CHILD_SESSION_ENV = "PI_FEISHU_CHILD_SESSION";
 
 export const DEFAULT_CONFIG: Pick<
