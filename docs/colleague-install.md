@@ -4,6 +4,28 @@
 
 这份说明用于安装通用 Pi 实习生智能体基座。通用基座不包含任何部门专属 skill。
 
+## 新电脑准备
+
+如果电脑上还没有任何 agent 或开发工具，请先准备：
+
+- Pi Agent 或支持 Pi package/skill 的兼容客户端
+- Git
+- Node.js LTS，建议 Node.js 20 或更高版本
+- Git Bash，Windows 安装 Git for Windows 时通常会一起安装
+- GitHub 私有仓库访问权限
+- `lark-cli`，用于飞书能力
+
+检查命令：
+
+```powershell
+pi --version
+git --version
+node --version
+npm --version
+bash --version
+lark-cli --version
+```
+
 ## 安装
 
 ```bash
