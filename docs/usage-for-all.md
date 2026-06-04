@@ -34,35 +34,42 @@ lark-cli --version
 
 ## 安装 Pi 实习生基座
 
-Claude Code 用的 `/pi-intern-setup` 入口已经打包在通用基座里，不需要你手动复制配置文件。
-
-它的位置是：
+Claude Code 用的安装 skill 已经打包好，文件名是：
 
 ```text
-claude/commands/pi-intern-setup.md
+pi-intern-base-installer.skill
 ```
 
-下面这个脚本会自动把它安装到你的 Claude Code 个人命令目录：
+这个文件在本文末尾附件里。下载后，把它安装到 Claude Code 的个人 skills 目录。
+
+Windows 可以这样做：
+
+```powershell
+New-Item -ItemType Directory -Force "$HOME\.claude\skills"
+Expand-Archive .\pi-intern-base-installer.skill -DestinationPath "$HOME\.claude\skills" -Force
+```
+
+安装后，重新打开 Claude Code，然后直接说：
 
 ```text
-~/.claude/commands/pi-intern-setup.md
+帮我安装 Pi 实习生通用基座
 ```
 
-如果你已经在用 Claude Code，建议先安装 Claude Code 入口命令：
+Claude Code 会调用 `pi-intern-base-installer` 这个 skill，帮你检查环境并安装通用基座。
+
+如果你想确认 skill 文件结构，它在包里的位置是：
+
+```text
+pi-intern-base-installer/SKILL.md
+```
+
+如果你不想通过附件安装，也可以从 GitHub 拉取后复制 skill 目录：
 
 ```powershell
 git clone https://github.com/Viy1204/pi-intern-agent-base.git
 cd pi-intern-agent-base
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-claude-command.ps1
+Copy-Item -Recurse -Force .\claude\skills\pi-intern-base-installer "$HOME\.claude\skills\pi-intern-base-installer"
 ```
-
-然后打开 Claude Code，输入：
-
-```text
-/pi-intern-setup
-```
-
-它会帮你检查环境并安装 Pi 实习生基座。
 
 如果你不使用 Claude Code，也可以直接在终端安装：
 

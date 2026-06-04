@@ -42,29 +42,24 @@ pi install git:github.com/Viy1204/pi-intern-agent-base@v0.1.0
 
 私有仓库需要先确认安装者已经被加入 GitHub 仓库权限。
 
-## Claude Code 入口
+## Claude Code Skill 入口
 
-如果同事电脑上已经有 Claude Code，建议先安装 Claude Code slash command：
+如果同事电脑上已经有 Claude Code，推荐安装这个 Claude Code skill：
 
 ```powershell
 git clone https://github.com/Viy1204/pi-intern-agent-base.git
 cd pi-intern-agent-base
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-claude-command.ps1
+New-Item -ItemType Directory -Force "$HOME\.claude\skills"
+Copy-Item -Recurse -Force .\claude\skills\pi-intern-base-installer "$HOME\.claude\skills\pi-intern-base-installer"
 ```
 
-之后打开 Claude Code，直接执行：
+之后重新打开 Claude Code，直接说：
 
 ```text
-/pi-intern-setup
+帮我安装 Pi 实习生通用基座
 ```
 
-HR 授权同事可以执行：
-
-```text
-/pi-intern-setup hr
-```
-
-这个命令会引导 Claude Code 检查本机环境、安装 Pi 基座、写入当前工作区 `.pi/AGENTS.md`，并检查飞书配置。
+这个 skill 会引导 Claude Code 检查本机环境、安装 Pi 基座、写入当前工作区 `.pi/AGENTS.md`，并检查飞书配置。
 
 ## 给同事看的简版说明
 

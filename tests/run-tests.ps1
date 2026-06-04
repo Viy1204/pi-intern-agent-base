@@ -4,8 +4,8 @@ $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
 $templatePath = Join-Path $repoRoot "templates\AGENTS.pi-intern.md"
 $scriptPath = Join-Path $repoRoot "skills\pi-intern-setup\scripts\install-agents.ps1"
 $checkScriptPath = Join-Path $repoRoot "skills\pi-intern-setup\scripts\check-environment.ps1"
-$claudeCommandPath = Join-Path $repoRoot "claude\commands\pi-intern-setup.md"
-$claudeInstallScriptPath = Join-Path $repoRoot "scripts\install-claude-command.ps1"
+$claudeBaseSkillPath = Join-Path $repoRoot "claude\skills\pi-intern-base-installer\SKILL.md"
+$claudeBaseInstallScriptPath = Join-Path $repoRoot "claude\skills\pi-intern-base-installer\scripts\install-pi-intern-base.ps1"
 $packagePath = Join-Path $repoRoot "package.json"
 
 function Assert-True {
@@ -37,13 +37,12 @@ function From-Utf8Hex {
 Assert-True (Test-Path -LiteralPath $templatePath) "Missing AGENTS template."
 Assert-True (Test-Path -LiteralPath $scriptPath) "Missing install script."
 Assert-True (Test-Path -LiteralPath $checkScriptPath) "Missing environment check script."
-Assert-True (Test-Path -LiteralPath $claudeCommandPath) "Missing Claude Code setup command."
-Assert-True (Test-Path -LiteralPath $claudeInstallScriptPath) "Missing Claude Code command installer."
+Assert-True (Test-Path -LiteralPath $claudeBaseSkillPath) "Missing Claude Code base installer skill."
+Assert-True (Test-Path -LiteralPath $claudeBaseInstallScriptPath) "Missing Claude Code base installer script."
 Assert-True (Test-Path -LiteralPath $packagePath) "Missing package.json."
 
 $pkg = Get-Content -Raw -Encoding UTF8 -LiteralPath $packagePath | ConvertFrom-Json
-Assert-True ($pkg.files -contains "claude/") "Package files must include Claude command directory."
-Assert-True ($pkg.files -contains "scripts/") "Package files must include scripts directory."
+Assert-True ($pkg.files -contains "claude/") "Package files must include Claude skills directory."
 Assert-True ($pkg.pi.extensions -contains "./extensions/pi-intern-feishu-bridge/index.ts") "Missing bridge extension in pi manifest."
 Assert-True ($pkg.pi.extensions -contains "node_modules/@juicesharp/rpiv-todo/index.ts") "Missing rpiv-todo extension in pi manifest."
 Assert-True ($pkg.pi.extensions -contains "node_modules/@juicesharp/rpiv-ask-user-question/index.ts") "Missing rpiv ask-user extension in pi manifest."
@@ -108,11 +107,10 @@ foreach ($needle in $forbidden) {
   Assert-True (-not $template.Contains($needle)) "Template contains forbidden text: $needle"
 }
 
-$claudeCommand = Get-Content -Raw -Encoding UTF8 -LiteralPath $claudeCommandPath
-Assert-True ($claudeCommand.Contains("/pi-intern-setup")) "Claude command should document its slash command."
-Assert-True ($claudeCommand.Contains("pi install git:github.com/Viy1204/pi-intern-agent-base@v0.1.0")) "Claude command missing base install command."
-Assert-True ($claudeCommand.Contains("pi install git:github.com/Viy1204/pi-intern-hr-pack@v0.1.0")) "Claude command missing HR install command."
-Assert-True ($claudeCommand.Contains((From-Utf8Hex "e4b88de8a681e5ae89e8a38520485220e58c85"))) "Claude command missing HR authorization guard."
+$claudeBaseSkill = Get-Content -Raw -Encoding UTF8 -LiteralPath $claudeBaseSkillPath
+Assert-True ($claudeBaseSkill.Contains("name: pi-intern-base-installer")) "Claude base installer skill has wrong name."
+Assert-True ($claudeBaseSkill.Contains("pi install git:github.com/Viy1204/pi-intern-agent-base@v0.1.0")) "Claude base installer skill missing base install command."
+Assert-True ($claudeBaseSkill.Contains((From-Utf8Hex "e4b88de8a681e4bb8ee69cac20736b696c6c20e5ae89e8a38520485220e58c85"))) "Claude base installer skill missing HR guard."
 
 $tmpRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("pi-intern-agent-base-test-" + [guid]::NewGuid().ToString("N"))
 New-Item -ItemType Directory -Path $tmpRoot | Out-Null
@@ -153,26 +151,9 @@ try {
   Assert-True (Test-Path -LiteralPath $globalForced.Json.backup) "Global backup file was not created."
   Assert-True ((Get-Content -Raw -Encoding UTF8 -LiteralPath $globalAgents) -eq $template) "Global AGENTS.md content mismatch."
 
-  $claudeHome = Join-Path $tmpRoot "claude-home"
-  New-Item -ItemType Directory -Path $claudeHome | Out-Null
-  $claudeInstalled = & powershell -NoProfile -ExecutionPolicy Bypass -File $claudeInstallScriptPath -HomePath $claudeHome
-  $claudeInstalledJson = $claudeInstalled | ConvertFrom-Json
-  Assert-True ($LASTEXITCODE -eq 0) "Expected Claude command install to succeed."
-  Assert-True ($claudeInstalledJson.status -eq "installed") "Expected Claude command installed status."
-  $installedCommand = Join-Path $claudeHome ".claude\commands\pi-intern-setup.md"
-  Assert-True (Test-Path -LiteralPath $installedCommand) "Claude command was not installed."
-  Assert-True ((Get-Content -Raw -Encoding UTF8 -LiteralPath $installedCommand) -eq $claudeCommand) "Claude command content mismatch."
-
-  $claudeExists = & powershell -NoProfile -ExecutionPolicy Bypass -File $claudeInstallScriptPath -HomePath $claudeHome
-  Assert-True ($LASTEXITCODE -eq 2) "Expected existing Claude command install to exit 2."
-  Assert-True ((($claudeExists | ConvertFrom-Json).status) -eq "exists") "Expected Claude command exists status."
-
-  "old command" | Set-Content -LiteralPath $installedCommand -Encoding UTF8
-  $claudeForced = & powershell -NoProfile -ExecutionPolicy Bypass -File $claudeInstallScriptPath -HomePath $claudeHome -Force
-  $claudeForcedJson = $claudeForced | ConvertFrom-Json
-  Assert-True ($LASTEXITCODE -eq 0) "Expected forced Claude command install to succeed."
-  Assert-True ($claudeForcedJson.status -eq "installed-with-backup") "Expected Claude command backup on forced overwrite."
-  Assert-True (Test-Path -LiteralPath $claudeForcedJson.backup) "Claude command backup file was not created."
+  $dryBase = & powershell -NoProfile -ExecutionPolicy Bypass -File $claudeBaseInstallScriptPath -Workspace $emptyWorkspace -DryRun
+  $dryBaseJson = $dryBase | ConvertFrom-Json
+  Assert-True ($null -ne $dryBaseJson.checks) "Expected base installer dry run to report checks."
 } finally {
   Remove-Item -Recurse -Force -LiteralPath $tmpRoot
 }

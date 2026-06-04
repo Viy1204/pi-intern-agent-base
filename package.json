@@ -13,7 +13,6 @@
     "claude/",
     "docs/",
     "extensions/",
-    "scripts/",
     "skills/",
     "templates/",
     "package.json"
