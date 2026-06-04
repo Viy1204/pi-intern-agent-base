@@ -34,6 +34,24 @@ lark-cli --version
 
 ## 安装 Pi 实习生基座
 
+如果你已经在用 Claude Code，建议先安装 Claude Code 入口命令：
+
+```powershell
+git clone https://github.com/Viy1204/pi-intern-agent-base.git
+cd pi-intern-agent-base
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-claude-command.ps1
+```
+
+然后打开 Claude Code，输入：
+
+```text
+/pi-intern-setup
+```
+
+它会帮你检查环境并安装 Pi 实习生基座。
+
+如果你不使用 Claude Code，也可以直接在终端安装：
+
 确认你已经有 GitHub 私有仓库访问权限后，在终端执行：
 
 ```bash

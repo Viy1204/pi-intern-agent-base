@@ -28,6 +28,22 @@ lark-cli --version
 
 ## 安装
 
+如果同事已经有 Claude Code，推荐先安装 Claude Code 入口命令：
+
+```powershell
+git clone https://github.com/Viy1204/pi-intern-agent-base.git
+cd pi-intern-agent-base
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-claude-command.ps1
+```
+
+之后在 Claude Code 里执行：
+
+```text
+/pi-intern-setup
+```
+
+如果不使用 Claude Code，则直接安装 Pi 基座：
+
 ```bash
 pi install git:github.com/Viy1204/pi-intern-agent-base@v0.1.0
 ```
