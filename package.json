@@ -1,0 +1,41 @@
+{
+  "name": "pi-intern-agent-base",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Pi intern agent base package with common office skills, Lark skills, Feishu bridge, and setup guidance.",
+  "keywords": [
+    "pi-package",
+    "pi",
+    "intern-agent",
+    "agents"
+  ],
+  "files": [
+    "docs/",
+    "extensions/",
+    "skills/",
+    "templates/",
+    "package.json"
+  ],
+  "pi": {
+    "extensions": [
+      "./extensions/pi-intern-feishu-bridge/index.ts",
+      "node_modules/@juicesharp/rpiv-todo/index.ts",
+      "node_modules/@juicesharp/rpiv-ask-user-question/index.ts"
+    ],
+    "skills": [
+      "./skills"
+    ]
+  },
+  "dependencies": {
+    "@larksuiteoapi/node-sdk": "^1.60.0",
+    "@juicesharp/rpiv-ask-user-question": "^1.12.0",
+    "@juicesharp/rpiv-todo": "^1.12.0",
+    "qrcode-terminal": "^0.12.0"
+  },
+  "overrides": {
+    "axios": "^1.17.0"
+  },
+  "scripts": {
+    "test": "powershell -NoProfile -ExecutionPolicy Bypass -File tests/run-tests.ps1"
+  }
+}
