@@ -14,6 +14,10 @@ export type FeishuConfig = {
   language?: "zh" | "en";
   reactEmoji?: string;
   autoStart?: boolean;
+  ownerOpenId?: string;
+  allowedUsers?: string[];
+  allowedChats?: string[];
+  openAccess?: boolean;
 };
 
 export type ModelSelection = {

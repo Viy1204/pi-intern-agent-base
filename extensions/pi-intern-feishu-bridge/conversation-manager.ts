@@ -16,6 +16,7 @@ import { debugLog } from "./debug.js";
 import type { ResumeScope, ResumeSessionPage } from "./cards.js";
 import type { TaskStatusSink } from "./task-status-card.js";
 import type { FeishuState } from "./types.js";
+import { assertWorkspaceAllowed } from "./workspace-policy.js";
 
 type ActiveRun = {
   session: AgentSession;
@@ -501,7 +502,9 @@ function resolveWorkspacePath(input: string) {
 
   const resolved = resolve(expanded);
   ensureWorkspaceExists(resolved);
-  return realpathSync(resolved);
+  const real = realpathSync(resolved);
+  assertWorkspaceAllowed(real);
+  return real;
 }
 
 function ensureWorkspaceExists(path: string) {

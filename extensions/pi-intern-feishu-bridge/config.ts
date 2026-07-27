@@ -20,7 +20,7 @@ export const DEFAULT_CONFIG: Pick<
   domain: "feishu",
   groupPolicy: "open",
   cardActionMode: "webhook",
-  cardActionWebhookHost: "0.0.0.0",
+  cardActionWebhookHost: "127.0.0.1",
   cardActionWebhookPort: 3001,
   cardActionWebhookPath: "/webhook/card",
   language: "zh",
@@ -67,6 +67,10 @@ export function loadConfig(): FeishuConfig | undefined {
       language: (process.env.FEISHU_LANGUAGE as "zh" | "en") || DEFAULT_CONFIG.language,
       reactEmoji: process.env.FEISHU_REACT_EMOJI || DEFAULT_CONFIG.reactEmoji,
       autoStart: process.env.FEISHU_AUTO_START ? process.env.FEISHU_AUTO_START !== "0" : DEFAULT_CONFIG.autoStart,
+      ownerOpenId: process.env.FEISHU_OWNER_OPEN_ID?.trim() || undefined,
+      allowedUsers: parseList(process.env.FEISHU_ALLOWED_USERS),
+      allowedChats: parseList(process.env.FEISHU_ALLOWED_CHATS),
+      openAccess: process.env.FEISHU_OPEN_ACCESS === "1",
     };
   }
   if (!existsSync(CONFIG_PATH)) return undefined;
@@ -84,7 +88,22 @@ export function loadConfig(): FeishuConfig | undefined {
     language: cfg.language || DEFAULT_CONFIG.language,
     reactEmoji: cfg.reactEmoji || DEFAULT_CONFIG.reactEmoji,
     autoStart: cfg.autoStart ?? DEFAULT_CONFIG.autoStart,
+    ownerOpenId: typeof cfg.ownerOpenId === "string" && cfg.ownerOpenId.trim() ? cfg.ownerOpenId.trim() : undefined,
+    allowedUsers: normalizeList(cfg.allowedUsers),
+    allowedChats: normalizeList(cfg.allowedChats),
+    openAccess: cfg.openAccess === true,
   };
+}
+
+function parseList(value: string | undefined) {
+  const items = (value || "").split(",").map((item) => item.trim()).filter(Boolean);
+  return items.length ? items : undefined;
+}
+
+function normalizeList(value: unknown) {
+  if (!Array.isArray(value)) return undefined;
+  const items = value.filter((item): item is string => typeof item === "string" && Boolean(item.trim())).map((item) => item.trim());
+  return items.length ? items : undefined;
 }
 
 function parseCardActionMode(value: unknown): CardActionMode | undefined {

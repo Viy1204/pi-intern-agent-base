@@ -118,6 +118,20 @@ Copy-Item -Recurse -Force .\claude\skills\pi-intern-base-installer "$HOME\.claud
 
 不要把 appSecret、token、cookie、个人 open_id 发给别人。需要排查配置时，只展示打码后的字段。
 
+### 访问控制
+
+bridge 默认只允许 owner 和白名单里的用户/群使用，其他人发消息会被静默忽略（不回复、不加表情，避免暴露机器人存在）。
+
+- **owner 认领**：配置完成后，第一个私聊机器人的用户自动成为 owner（通常就是刚跑完 `/feishu setup` 的你），并持久化在 `~/.pi/agent/feishu/access.json`。
+- **白名单**：在 `~/.pi/agent/feishu/config.json` 里加 `allowedUsers`（open_id 数组）和 `allowedChats`（chat_id 数组），或用环境变量 `FEISHU_ALLOWED_USERS` / `FEISHU_ALLOWED_CHATS`（逗号分隔）。
+- **owner 覆盖**：配置 `ownerOpenId` 或环境变量 `FEISHU_OWNER_OPEN_ID`。
+- **关闭鉴权**（不建议）：配置 `"openAccess": true` 或 `FEISHU_OPEN_ACCESS=1`，恢复所有人可用的旧行为。
+- 卡片按钮（停止任务、切模型、切会话）带 HMAC 签名并校验操作者身份，旧版本发出的卡片在升级后会提示已失效，重新发起即可。
+- `/workspace` 拒绝切换到过宽的目录（磁盘根、用户主目录、Desktop/Downloads、系统目录）。
+- `/feishu status` 会显示当前 owner 和白名单数量。
+
+修改配置后运行 `/feishu restart` 生效。
+
 ## 部门 skill 包
 
 部门能力不放在通用基座里。需要部门能力时，先安装本基座，再额外安装对应部门包。

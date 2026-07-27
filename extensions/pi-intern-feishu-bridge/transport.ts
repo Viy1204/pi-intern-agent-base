@@ -1,4 +1,6 @@
 import type { FeishuCardAction, FeishuConfig, FeishuMessage } from "./types.js";
+import type { FeishuAccess } from "./access.js";
+import { isBridgeActionValue, signCardButtonValues, verifyActionValue } from "./card-auth.js";
 import { debugLog } from "./debug.js";
 import { buildMarkdownCardParts, buildPostMessages, chooseMessageMode } from "./rich-text.js";
 import { stripThinkingTags } from "./messages.js";
@@ -26,6 +28,7 @@ export class FeishuTransport {
 
   constructor(
     private readonly config: FeishuConfig,
+    private readonly access: FeishuAccess,
     private readonly onMessage: (msg: FeishuMessage) => Promise<void>,
     private readonly onCardAction: (action: FeishuCardAction) => Promise<object | undefined | void>,
   ) {}
@@ -135,6 +138,23 @@ export class FeishuTransport {
       content: message.content || "",
     });
 
+    const senderOpenId = sender?.sender_id?.open_id || "unknown";
+    const accessDecision = this.access.checkMessage(senderOpenId, message.chat_id, message.chat_type);
+    if (!accessDecision.allowed) {
+      debugLog("feishu.message.denied", {
+        messageId: message.message_id,
+        chatId: message.chat_id,
+        senderOpenId,
+      });
+      return;
+    }
+    if (accessDecision.claimedOwner) {
+      void this.sendText(
+        message.chat_id,
+        "🔐 已将你设为本机 Pi 桥接的 owner。之后只有 owner 和白名单里的用户/群可以使用这个机器人；如需放开给其他人，请在配置里加 allowedUsers / allowedChats。",
+      ).catch(() => undefined);
+    }
+
     if (message.chat_type === "group" && this.config.groupPolicy === "mention") {
       if (!this.isMentioned(message)) {
         debugLog("feishu.message.ignored_not_mentioned", { messageId: message.message_id });
@@ -148,7 +168,7 @@ export class FeishuTransport {
       chatId: message.chat_id,
       chatType: message.chat_type,
       chatMode,
-      senderOpenId: sender?.sender_id?.open_id || "unknown",
+      senderOpenId,
       msgType: message.message_type,
       content: message.content || "",
       rootId: message.root_id,
@@ -199,7 +219,29 @@ export class FeishuTransport {
   }
 
   private async handleCardActionAction(action: FeishuCardAction, mode: "ws" | "webhook") {
+    if (isBridgeActionValue(action.value)) {
+      if (!this.access.isAuthorized(action.operatorOpenId, action.chatId)) {
+        debugLog("feishu.card.denied", {
+          messageId: action.messageId,
+          chatId: action.chatId,
+          operatorOpenId: action.operatorOpenId,
+          mode,
+        });
+        return undefined;
+      }
+      if (!verifyActionValue(action.value)) {
+        debugLog("feishu.card.bad_signature", {
+          messageId: action.messageId,
+          chatId: action.chatId,
+          operatorOpenId: action.operatorOpenId,
+          mode,
+        });
+        void this.replyPlainText(action.messageId, "这张卡片已失效（签名校验未通过），请重新发起操作。").catch(() => undefined);
+        return undefined;
+      }
+    }
     const result = await this.onCardAction(action);
+    if (result) signCardButtonValues(result);
     if (mode === "ws" && result) {
       await this.updateCard(action.messageId, result);
     }
@@ -337,6 +379,7 @@ export class FeishuTransport {
       .map((part) => {
         const copySourceId = extractCopySourceId(part.card);
         if (copySourceId) this.rememberMarkdownCopySource(copySourceId, part.markdown);
+        signCardButtonValues(part.card);
         return part;
       });
   }
@@ -381,6 +424,7 @@ export class FeishuTransport {
 
   async replyCard(messageId: string, card: object) {
     debugLog("feishu.reply.card", { messageId });
+    signCardButtonValues(card);
     const res = await this.sdkClient.im.message.reply({
       path: { message_id: messageId },
       data: { msg_type: "interactive", content: JSON.stringify(card) },
@@ -390,6 +434,7 @@ export class FeishuTransport {
 
   async updateCard(messageId: string, card: object) {
     debugLog("feishu.update.card", { messageId });
+    signCardButtonValues(card);
     await this.sdkClient.im.v1.message.patch({
       path: { message_id: messageId },
       data: { content: JSON.stringify(card) },

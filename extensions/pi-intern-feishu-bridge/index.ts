@@ -3,6 +3,8 @@ import { spawn, spawnSync } from "node:child_process";
 import { delimiter, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { ACCESS_PATH, FeishuAccess } from "./access.js";
+import { CARD_SECRET_PATH } from "./card-auth.js";
 import { buildModelCard, buildResumeCard, parseModelActionValue, parseResumePageActionValue, parseResumeSelectActionValue } from "./cards.js";
 import { BRIDGE_PATH, CHILD_SESSION_ENV, CONFIG_PATH, DAEMON_LOG_PATH, DEBUG_LOG_PATH, DEDUPE_PATH, ensureRoot, FIRST_RUN_PATH, loadConfig, mask, readJson, removePath, STATE_PATH, writeJson } from "./config.js";
 import { debugLog } from "./debug.js";
@@ -134,11 +136,11 @@ export default function feishuExtension(pi: ExtensionAPI) {
       gatewayLock = undefined;
       updateStatus(loadConfig() ? "owned" : "not configured");
       if (process.env.PI_FEISHU_DAEMON === "1") {
-        terminateLauncherParent();
+        terminateLauncherParent(daemonSpec().extensionPath);
         process.exit(0);
       }
     });
-    transport = new FeishuTransport(cfg, (msg) => messageHandler.handle(msg), async (action) => {
+    transport = new FeishuTransport(cfg, new FeishuAccess(cfg), (msg) => messageHandler.handle(msg), async (action) => {
       const copy = parseCopyMarkdownActionValue(action.value);
       if (copy) {
         const source = transport?.getMarkdownCopySource(copy.copySourceId);
@@ -299,7 +301,7 @@ export default function feishuExtension(pi: ExtensionAPI) {
         return { status: "busy" as const, owner };
       }
 
-      reapDetachedDaemonProcesses({ keepPids: [process.pid] });
+      reapDetachedDaemonProcesses({ keepPids: [process.pid], extensionPath: daemonSpec().extensionPath });
       ensureRoot();
       const logFd = openSync(DAEMON_LOG_PATH, "a");
       const child = spawn(bashPath, ["-lc", daemonCommand()], {
@@ -317,19 +319,20 @@ export default function feishuExtension(pi: ExtensionAPI) {
 
   async function stopDaemon() {
     const owner = readGatewayOwner();
+    const extensionPath = daemonSpec().extensionPath;
     if (!owner) {
-      reapDetachedDaemonProcesses();
+      reapDetachedDaemonProcesses({ extensionPath });
       return { status: "none" as const };
     }
     if (owner.pid === process.pid) {
       await stop();
-      reapDetachedDaemonProcesses({ keepPids: [process.pid] });
+      reapDetachedDaemonProcesses({ keepPids: [process.pid], extensionPath });
       return { status: "stopped-current" as const };
     }
     try {
       process.kill(owner.pid, "SIGTERM");
       await sleep(800);
-      reapDetachedDaemonProcesses();
+      reapDetachedDaemonProcesses({ extensionPath });
       return { status: "stopped" as const, owner };
     } catch (error) {
       return { status: "error" as const, owner, error };
@@ -403,6 +406,8 @@ export default function feishuExtension(pi: ExtensionAPI) {
           removePath(DEDUPE_PATH);
           removePath(`${DEDUPE_PATH}.lock`);
           removePath(BRIDGE_PATH);
+          removePath(ACCESS_PATH);
+          removePath(CARD_SECRET_PATH);
           conversations.resetMemory();
           messageHandler.reset();
           ensureRoot();
@@ -423,6 +428,7 @@ export default function feishuExtension(pi: ExtensionAPI) {
               `Status: ${lastStatusText || (loadConfig() ? "Feishu: disconnected" : "Feishu: not configured")}`,
               `Gateway owner: ${formatOwner(owner)}`,
               `Config: ${cfg ? `${cfg.domain}, appId=${mask(cfg.appId)}, groupPolicy=${cfg.groupPolicy}, autoStart=${cfg.autoStart !== false}` : "missing"}`,
+              `Access: ${new FeishuAccess(cfg).describe()}`,
               `Path: ${CONFIG_PATH}`,
               `Gateway lock: ${gatewayLockPath()}`,
               `Debug: ${DEBUG_LOG_PATH}`,
@@ -558,8 +564,6 @@ type DaemonProcessInfo = {
 };
 
 function reapDetachedDaemonProcesses(options: { keepPids?: number[]; extensionPath?: string } = {}) {
-  if (process.platform === "win32") return;
-
   const keep = new Set(options.keepPids || []);
   const allProcesses = listProcesses();
   const roots = allProcesses.filter((proc) => looksLikeFeishuDaemon(proc.command, options.extensionPath));
@@ -594,6 +598,10 @@ function collectDescendantPids(pid: number, byParent: Map<number, DaemonProcessI
 }
 
 function listProcesses() {
+  return process.platform === "win32" ? listProcessesWindows() : listProcessesPosix();
+}
+
+function listProcessesPosix() {
   const result = spawnSync("ps", ["-wwaxo", "pid=,ppid=,command="], { encoding: "utf8" });
   if (result.status !== 0) return [] as DaemonProcessInfo[];
 
@@ -612,28 +620,52 @@ function listProcesses() {
   return processes;
 }
 
+function listProcessesWindows() {
+  const script = "Get-CimInstance Win32_Process | ForEach-Object { '{0}|{1}|{2}' -f $_.ProcessId, $_.ParentProcessId, $_.CommandLine }";
+  const result = spawnSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", script], {
+    encoding: "utf8",
+    windowsHide: true,
+    maxBuffer: 16 * 1024 * 1024,
+  });
+  if (result.status !== 0 || !result.stdout) return [] as DaemonProcessInfo[];
+
+  const processes: DaemonProcessInfo[] = [];
+  for (const line of result.stdout.split(/\r?\n/)) {
+    const match = line.match(/^(\d+)\|(\d+)\|(.*)$/);
+    if (!match) continue;
+    const pid = Number(match[1]);
+    const ppid = Number(match[2]);
+    if (!Number.isFinite(pid) || !Number.isFinite(ppid)) continue;
+    processes.push({ pid, ppid, command: match[3] || "" });
+  }
+  return processes;
+}
+
+function normalizePathSeparators(value: string) {
+  return value.replace(/\\/g, "/");
+}
+
 function looksLikeFeishuDaemon(command: string, extensionPath?: string) {
   const hasDaemonFlags = command.includes("--mode rpc")
     && command.includes("--no-extensions")
     && command.includes("--no-builtin-tools");
   if (!hasDaemonFlags) return false;
-  if (extensionPath) return command.includes(extensionPath);
-  return command.includes("feishu/index.ts");
+  const normalized = normalizePathSeparators(command);
+  if (extensionPath) return normalized.includes(normalizePathSeparators(extensionPath));
+  return normalized.includes("pi-intern-feishu-bridge/index.ts");
 }
 
-function terminateLauncherParent() {
-  if (process.platform === "win32") return;
+function terminateLauncherParent(extensionPath?: string) {
   const parentPid = process.ppid;
   if (!parentPid || parentPid <= 1) return;
 
-  const result = spawnSync("ps", ["-wwaxo", "pid=,command="], { encoding: "utf8" });
-  if (result.status !== 0) return;
-
-  const line = result.stdout.split("\n")
-    .map((entry) => entry.trim())
-    .find((entry) => entry.startsWith(`${parentPid} `));
-  if (!line) return;
-  if (!line.includes("tail -f /dev/null") || !line.includes("feishu/index.ts")) return;
+  const parent = listProcesses().find((proc) => proc.pid === parentPid);
+  if (!parent) return;
+  const normalized = normalizePathSeparators(parent.command);
+  const matchesExtension = extensionPath
+    ? normalized.includes(normalizePathSeparators(extensionPath))
+    : normalized.includes("pi-intern-feishu-bridge/index.ts");
+  if (!parent.command.includes("tail -f /dev/null") || !matchesExtension) return;
   try { process.kill(parentPid, "SIGTERM"); } catch {}
 }
 
