@@ -1,219 +1,197 @@
-# Pi Intern Agent Base
+# Pi 实习生智能体
 
-Pi 实习生智能体通用基座。它提供通用办公 skill、飞书/Lark skill、飞书通信 bridge，以及一份可选安装的通用 `AGENTS.md` 行为规范。
+给你配一个**会用飞书的 AI 实习生**：装好之后，你在飞书里像跟同事聊天一样给它派活，它在你的电脑上把活干完。
 
-通用基座不包含 HR 专属 skill，也不包含个人路径、个人 open_id、token、appSecret、cookie 或部门私有规则。
+它能做什么：读写飞书文档 / 表格 / 多维表格、查日历、发消息、整理云盘文件、做 Word / PPT / Excel / PDF，以及任何你能在电脑上做的事。
 
-## 适合谁安装
+> 想了解「为什么这么设计」，看 [DESIGN.md](DESIGN.md)。
 
-- 需要一个通用办公实习生智能体的同事。
-- 需要在 Pi 里使用飞书文档、表格、日历、IM、任务、知识库等能力的同事。
-- 后续还要叠加部门 skill 包的同事。
+---
 
-## 新电脑先安装这些
+## 谁适合装
 
-如果同事电脑上还没有任何 agent 或开发工具，建议按这个顺序准备：
+- 想要一个通用办公 AI 助手的同事
+- 经常要处理飞书文档、表格、日历、消息的同事
+- 之后还打算叠加部门专属能力（招聘、面试官等）的同事
 
-1. 安装 Pi Agent 或支持 Pi package/skill 的兼容客户端。
-2. 安装 Git。
-3. 安装 Node.js LTS，建议 Node.js 20 或更高版本。
-4. 安装 Git Bash。Windows 安装 Git for Windows 时通常会一起安装。
-5. 确认自己有这个 GitHub 私有仓库的访问权限。
-6. 如需使用飞书能力，安装并配置 `lark-cli`。
+## 安装（三步）
 
-在终端里检查：
+### 第一步：装好基础软件
+
+打开 PowerShell，一条条运行下面的命令。已经装过的会提示已存在，跳过就行。
 
 ```powershell
-pi --version
-git --version
-node --version
-npm --version
-bash --version
-lark-cli --version
+winget install --id Git.Git -e --source winget
 ```
-
-如果 `lark-cli --version` 暂时失败，也可以先安装基座，之后在初始化流程里继续处理飞书配置。
-
-## 缺工具时怎么安装
-
-| 缺少工具 | Windows 安装命令 | 官网 / 说明 |
-| --- | --- | --- |
-| `winget` | 按 Microsoft 说明安装或修复 App Installer | https://learn.microsoft.com/windows/package-manager/winget/ |
-| `git` | `winget install --id Git.Git -e --source winget` | https://git-scm.com/download/win |
-| `node` / `npm` | `winget install --id OpenJS.NodeJS.LTS -e --source winget` | https://nodejs.org/en/download |
-| `claude` | `npm install -g @anthropic-ai/claude-code` | https://docs.claude.com/en/docs/claude-code/setup |
-| `pi` | `npm install -g @earendil-works/pi-coding-agent` | https://www.npmjs.com/package/@earendil-works/pi-coding-agent |
-| `lark-cli` | `npx @larksuite/cli@latest install` | https://github.com/larksuite/cli |
-
-安装新工具后，重新打开 Claude Code 或终端。
-
-## 安装基座
-
-```bash
-pi install git:github.com/Viy1204/pi-intern-agent-base@v0.1.1
-```
-
-私有仓库需要先确认安装者已经被加入 GitHub 仓库权限。
-
-## Claude Code Skill 入口
-
-如果同事电脑上已经有 Claude Code，推荐安装这个 Claude Code skill：
 
 ```powershell
-git clone https://github.com/Viy1204/pi-intern-agent-base.git
-cd pi-intern-agent-base
-New-Item -ItemType Directory -Force "$HOME\.claude\skills"
-Copy-Item -Recurse -Force .\claude\skills\pi-intern-base-installer "$HOME\.claude\skills\pi-intern-base-installer"
+winget install --id OpenJS.NodeJS.LTS -e --source winget
 ```
 
-之后重新打开 Claude Code，直接说：
-
-```text
-帮我安装 Pi 实习生通用基座
+```powershell
+npm install -g @earendil-works/pi-coding-agent
 ```
 
-这个 skill 会引导 Claude Code 检查本机环境、安装 Pi 基座、写入当前工作区 `.pi/AGENTS.md`，并检查飞书配置。
+```powershell
+npx @larksuite/cli@latest install
+```
 
-## 给同事看的简版说明
+**装完请关掉 PowerShell 重新打开**（不然新装的命令找不到）。然后检查一下，四行都应该输出版本号：
 
-可直接转发这份文档：[Pi 实习生智能体使用说明](docs/usage-for-all.md)。
+```powershell
+pi --version; git --version; node --version; lark-cli --version
+```
 
-## 初始化
+有任何一行报错，去下面的[常见问题](#常见问题)找对应的那条。
 
-安装完成后，打开 Pi，对它说：
+### 第二步：装实习生
+
+```powershell
+pi install git:github.com/Viy1204/pi-intern-agent-base
+```
+
+### 第三步：让它自己配置自己
+
+打开 Pi（终端里输入 `pi`），然后**直接用中文说**：
 
 ```text
 使用 pi-intern-setup，帮我完成基座初始化
 ```
 
-初始化会引导完成：
+它会带着你走完剩下的配置：检查环境、写入行为规范、引导你登录模型、配置飞书。跟着提示走就行。
 
-- 检查 Pi、Node.js、npm、Git、Git Bash、`lark-cli`。
-- 询问是否安装通用 `AGENTS.md`。
-- 默认把通用行为规范写入当前工作区 `.pi/AGENTS.md`。
-- 如选择全局写入 `~/.pi/agent/AGENTS.md`，会先备份已有文件。
-- 引导 `/login`、`/feishu setup`、`/feishu status`。
-- 如果飞书插件没反应，引导 `/feishu restart`。
+配置飞书的那一步会让你扫码创建飞书应用——扫码授权即可，不需要懂技术细节。
 
-第一次启动 Pi 时，建议按这个顺序：
+---
 
-```text
-/login
-/feishu setup
-/feishu status
-```
+## 装完之后怎么用
 
-如果 `/feishu setup` 后没有反应，先试：
+### 在终端里用
+
+输入 `pi` 打开，然后直接说话：
 
 ```text
-/feishu restart
+帮我把这个季度的招聘数据整理成表格
 ```
 
-## 飞书能力
+### 在飞书里用（推荐）
 
-飞书能力分两层：
+配置完飞书后，**在飞书里私聊你的机器人**发一条消息——第一个私聊它的人自动成为它的主人（也就是你）。之后你在飞书里说的话它都会处理。
 
-- `lark-cli`：用于飞书文档、表格、多维表格、日历、IM、任务、知识库等 API 操作。
-- `pi-intern-feishu-bridge`：用于在飞书里直接和 Pi 对话。
+飞书里可用的命令：
 
-不要把 appSecret、token、cookie、个人 open_id 发给别人。需要排查配置时，只展示打码后的字段。
+| 命令 | 作用 |
+|---|---|
+| `/new` | 开个新话题，之前聊的内容不带过来 |
+| `/stop` | 停掉正在跑的任务 |
+| `/model` | 换一个 AI 模型 |
+| `/resume` | 切回之前的某次对话 |
+| `/workspace` | 查看或切换它默认在哪个文件夹干活 |
 
-### 访问控制
+在终端 Pi 里管理飞书连接：
 
-bridge 默认只允许 owner 和白名单里的用户/群使用，其他人发消息会被静默忽略（不回复、不加表情，避免暴露机器人存在）。
+| 命令 | 作用 |
+|---|---|
+| `/feishu status` | 看现在连着没有 |
+| `/feishu restart` | 重启连接（**配置改完或者没反应时先试这个**） |
+| `/feishu stop` | 断开连接 |
+| `/feishu setup` | 重新配置飞书 |
 
-- **owner 认领**：配置完成后，第一个私聊机器人的用户自动成为 owner（通常就是刚跑完 `/feishu setup` 的你），并持久化在 `~/.pi/agent/feishu/access.json`。
-- **白名单**：在 `~/.pi/agent/feishu/config.json` 里加 `allowedUsers`（open_id 数组）和 `allowedChats`（chat_id 数组），或用环境变量 `FEISHU_ALLOWED_USERS` / `FEISHU_ALLOWED_CHATS`（逗号分隔）。
-- **owner 覆盖**：配置 `ownerOpenId` 或环境变量 `FEISHU_OWNER_OPEN_ID`。
-- **关闭鉴权**（不建议）：配置 `"openAccess": true` 或 `FEISHU_OPEN_ACCESS=1`，恢复所有人可用的旧行为。
-- 卡片按钮（停止任务、切模型、切会话）带 HMAC 签名并校验操作者身份，旧版本发出的卡片在升级后会提示已失效，重新发起即可。
-- `/workspace` 拒绝切换到过宽的目录（磁盘根、用户主目录、Desktop/Downloads、系统目录）。
-- `/feishu status` 会显示当前 owner 和白名单数量。
+---
 
-修改配置后运行 `/feishu restart` 生效。
+## 关于安全，你需要知道的三件事
 
-## 部门 skill 包
+**1. 只有你能用它。** 默认只有主人（第一个私聊它的人）和你明确允许的人能用，其他人发消息它完全不理（不回复也不提示，避免暴露它的存在）。
 
-部门能力不放在通用基座里。需要部门能力时，先安装本基座，再额外安装对应部门包。
+要放开给同事或某个群使用，编辑 `C:\Users\你的用户名\.pi\agent\feishu\config.json`，加上：
 
-HR 授权同事可额外安装：
-
-```bash
-pi install git:github.com/Viy1204/pi-intern-hr-pack@v0.1.1
+```json
+{
+  "allowedUsers": ["同事的open_id"],
+  "allowedChats": ["群的chat_id"]
+}
 ```
 
-需要 AI 面试官（机器人真身加入视频会议做语音面试）的同事可额外安装：
+改完运行 `/feishu restart` 生效。
 
-```bash
-pi install git:github.com/Viy1204/feishu-interview-agent
-```
+**2. 它能碰你电脑上的文件。** 它以你的身份运行，你能读写的它都能读写。`/workspace` 只是设定它默认在哪个文件夹干活，不是权限限制。所以：**不要让不信任的人用它**。
 
-装完后在飞书里对 Pi 说"让面试官进会议 <9位会议号>"即可。面试官可复用桥接的飞书应用凭证（需补开 vc 入会权限并发布版本），详见该仓库 README。
+为了避免误伤，它拒绝把工作文件夹设成磁盘根目录、你的主目录、桌面、下载、系统目录——这些范围太大。建议给它一个专门的文件夹，比如 `C:\Users\你的用户名\pi-work\`。
+
+**3. 别把凭证发给别人。** appSecret、token、cookie 这类东西不要截图外发。需要别人帮你排查时，只发打码后的内容。
+
+---
 
 ## 常见问题
 
-### pi 命令不存在
+### `pi` 命令不存在
 
-说明还没有安装 Pi Agent/CLI，或安装后没有加入系统 PATH。先安装 Pi，再重新打开终端检查 `pi --version`。
+Node.js 没装好，或者装完没重开终端。先跑 `node --version` 确认 Node 正常，再重新装一次 pi，然后**关掉终端重新打开**。
 
-### git 命令不存在
+### `spawn bash ENOENT`
 
-安装 Git。Windows 建议安装 Git for Windows，并确认安装 Git Bash。
-
-### node 或 npm 命令不存在
-
-安装 Node.js LTS。安装后重新打开终端，再检查 `node --version` 和 `npm --version`。
-
-### 没有 GitHub 权限
-
-请仓库管理员把同事加入私有仓库访问名单。没有权限时，`pi install git:...` 会拉取失败。
-
-如果 `git ls-remote` 或安装器提示 `Repository not found`，通常不是仓库名错，而是当前 GitHub 账号还没有私有仓库权限。
-
-如果弹出 GitHub 登录窗口后被取消，重新运行：
-
-```powershell
-git ls-remote https://github.com/Viy1204/pi-intern-agent-base.git HEAD
-```
-
-按 Git Credential Manager 提示完成登录后，再重新安装。
-
-### spawn bash ENOENT
-
-飞书 bridge 后台进程依赖 Git Bash。安装 Git for Windows 后，确认下面命令可用：
+飞书连接需要 Git Bash。装 Git for Windows 时勾选 Git Bash 即可。装完确认这条能输出版本号：
 
 ```powershell
 bash --version
 ```
 
-如果仍报 `spawn bash ENOENT`，把 `C:\Program Files\Git\usr\bin` 加到用户 PATH，关闭并重新打开终端。
+还是报错的话，把 `C:\Program Files\Git\usr\bin` 加到系统 PATH，然后重开终端。
 
-### No models available
+### `No models available`
 
-说明 Pi 还没配置模型/API。启动 Pi 后先运行：
+还没配 AI 模型。在 Pi 里运行 `/login`，按提示配置。
 
-```text
-/login
-```
+### 飞书配好了但机器人不回消息
 
-按提示配置 API key、OAuth 或模型 provider。
+按顺序试：
 
-### Skill conflicts 里显示 skipped
+1. `/feishu restart`
+2. `/feishu status` 看是不是 `已连接`
+3. 确认你是主人——第一个私聊它的人才是主人。如果第一条私聊是别人发的，主人就成了他，你需要手动改配置里的 `ownerOpenId`
+4. 群里要不要 @ 它取决于配置的 `groupPolicy`，私聊一定不需要
 
-Pi 启动时如果看到某些 skill 显示 `(skipped)`，通常只是同名 skill 已经在用户目录存在，不等于安装失败。优先看真正的 error 行。
+### 卡片按钮点了没反应 / 提示已失效
 
-### 飞书权限不足
+升级之后旧卡片会失效，重新发一次消息生成新卡片即可。
 
-先执行初始化流程里的 `/feishu setup`。如果仍然失败，把报错中的缺失 scope 或权限点发给管理员，不要发送 token 或 appSecret。
+### 提示飞书权限不足
 
-## 维护者检查
+把报错里提到的权限名发给管理员开通，**不要发 token 或 appSecret**。
 
-发布前至少执行：
+### 启动时看到某些 skill 显示 skipped
+
+不是错误。说明同名 skill 你已经装过了，用的是你自己那份。只需要关注真正的 error。
+
+---
+
+## 叠加更多能力
+
+基座是通用的，部门专属能力单独装。
+
+**HR 能力包**（需要授权）：
 
 ```powershell
-npm test
-npm audit --audit-level=high
-npm pack --dry-run
+pi install git:github.com/Viy1204/pi-intern-hr-pack@v0.1.1
 ```
 
-并确认打包内容不包含部门私有 skill、个人路径、token、appSecret、cookie。
+**AI 面试官**——让机器人用真人声音加入飞书视频会议做语音面试：
+
+```powershell
+pi install git:github.com/Viy1204/feishu-interview-agent
+```
+
+装完在飞书里说「让面试官进会议 123456789」即可。详见[该项目说明](https://github.com/Viy1204/feishu-interview-agent)。
+
+---
+
+## 给维护者
+
+```powershell
+npm test          # 类型检查 + 单元测试
+npm run test:pack # 打包完整性（skill 清单、HR 黑名单）
+```
+
+CI 在 Windows / macOS / Ubuntu 三平台跑。发布前确认打包内容不含部门私有 skill、个人路径、任何凭证。
+
+项目结构和设计取舍见 [DESIGN.md](DESIGN.md)。
