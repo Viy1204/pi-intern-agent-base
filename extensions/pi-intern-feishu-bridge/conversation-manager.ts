@@ -23,6 +23,7 @@ type ActiveRun = {
   runId?: string;
   stopped: boolean;
   status?: TaskStatusSink;
+  lastActivityAt: number;
 };
 
 export type StopConversationResult =
@@ -32,6 +33,13 @@ export type StopConversationResult =
   | { status: "failed"; message: string };
 
 const RESUME_PAGE_SIZE = 10;
+
+// 长任务（读大表格、跑脚本）几分钟很正常。只有会话真正静默（不再产生任何
+// 事件）或总时长超上限才中止，中止时必须 abort，否则会话残留 busy 状态，
+// 下一条消息会撞上 "Agent is already processing"。
+const RUN_IDLE_TIMEOUT_MS = 5 * 60_000;
+const RUN_MAX_MS = 30 * 60_000;
+const QUEUE_WAIT_MS = RUN_MAX_MS + 5 * 60_000;
 
 export class ConversationManager {
   private readonly sessions = new Map<string, Promise<AgentSession>>();
@@ -83,16 +91,12 @@ export class ConversationManager {
     const next = previous.then(async () => {
       debugLog("feishu.prompt.start", { key, textLength: userText.length, imageCount: images.length });
       const session = await this.getSession(key);
-      const run: ActiveRun = { session, runId: status?.runId, stopped: false, status };
+      const run: ActiveRun = { session, runId: status?.runId, stopped: false, status, lastActivityAt: Date.now() };
       this.activeRuns.set(key, run);
       this.bridge?.beginFeishuInput(session.sessionId);
       try {
         try {
-          await withTimeout(
-            session.prompt(userText, images.length ? { images } : undefined),
-            180_000,
-            "Pi 模型处理超时，请稍后重试；如果是图片消息，可以先切换到明确支持图片的模型。",
-          );
+          await this.promptWithWatchdog(session, run, userText, images);
         } catch (error) {
           if (run.stopped) {
             debugLog("feishu.prompt.stopped", { key });
@@ -117,6 +121,41 @@ export class ConversationManager {
     });
     this.queues.set(key, next);
     await next;
+  }
+
+  /** 活动感知看门狗：会话只要还在产生事件就不超时；真正静默或超总上限才 abort。 */
+  private async promptWithWatchdog(
+    session: AgentSession,
+    run: ActiveRun,
+    userText: string,
+    images: Array<{ type: "image"; data: string; mimeType: string }>,
+  ) {
+    const promptPromise = session.prompt(userText, images.length ? { images } : undefined);
+    promptPromise.catch(() => undefined);
+
+    let timer: NodeJS.Timeout | undefined;
+    const watchdog = new Promise<never>((_, reject) => {
+      const startedAt = Date.now();
+      timer = setInterval(() => {
+        const idleFor = Date.now() - run.lastActivityAt;
+        const totalFor = Date.now() - startedAt;
+        if (idleFor <= RUN_IDLE_TIMEOUT_MS && totalFor <= RUN_MAX_MS) return;
+        clearInterval(timer);
+        const reason = idleFor > RUN_IDLE_TIMEOUT_MS
+          ? `模型已 ${Math.round(idleFor / 60_000)} 分钟没有任何响应`
+          : `任务超过 ${Math.round(RUN_MAX_MS / 60_000)} 分钟上限`;
+        debugLog("feishu.prompt.watchdog_abort", { idleFor, totalFor });
+        void session.abort().catch(() => undefined);
+        reject(new Error(`已中止：${reason}。可以重试，或把任务拆小一点。`));
+      }, 5_000);
+      timer.unref?.();
+    });
+
+    try {
+      await Promise.race([promptPromise, watchdog]);
+    } finally {
+      if (timer) clearInterval(timer);
+    }
   }
 
   async stopConversation(key: string, onReply: (text: string) => Promise<void>, runId?: string): Promise<StopConversationResult> {
@@ -367,8 +406,10 @@ export class ConversationManager {
   }
 
   private previousTurn(key: string) {
+    // 等待上限必须大于单次任务上限（看门狗保证任务必然终止），否则会在上一轮
+    // 还在跑时提前放行，撞上 "Agent is already processing"。
     const previous = this.queues.get(key) || Promise.resolve();
-    return withTimeout(previous, 120_000, "上一条飞书消息处理超时，已跳过等待。")
+    return withTimeout(previous, QUEUE_WAIT_MS, "上一条飞书消息处理超时，已跳过等待。")
       .catch((error) => {
         debugLog("feishu.queue.previous_timeout", {
           key,
@@ -418,7 +459,11 @@ export class ConversationManager {
     await session.bindExtensions({});
     this.bridge?.attachSession(key, session.sessionId);
     session.subscribe((event) => {
-      this.activeRuns.get(key)?.status?.updateFromEvent(event);
+      const active = this.activeRuns.get(key);
+      if (active) {
+        active.lastActivityAt = Date.now();
+        active.status?.updateFromEvent(event);
+      }
       if (event.type === "message_end") {
         this.bridge?.handleMessageEnd(session.sessionId, key, event.message);
       }
