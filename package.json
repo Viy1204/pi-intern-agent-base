@@ -28,15 +28,30 @@
     ]
   },
   "dependencies": {
-    "@larksuiteoapi/node-sdk": "^1.60.0",
     "@juicesharp/rpiv-ask-user-question": "^1.12.0",
     "@juicesharp/rpiv-todo": "^1.12.0",
+    "@larksuiteoapi/node-sdk": "^1.60.0",
     "qrcode-terminal": "^0.12.0"
   },
   "overrides": {
     "axios": "^1.17.0"
   },
   "scripts": {
-    "test": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests/run-tests.ps1"
+    "test": "npm run typecheck && npm run test:unit",
+    "typecheck": "tsc --noEmit",
+    "test:unit": "vitest run",
+    "test:pack": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests/run-tests.ps1"
+  },
+  "devDependencies": {
+    "@earendil-works/pi-coding-agent": "^0.82.1",
+    "@types/node": "^26.1.2",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": ">=0.82.0"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }

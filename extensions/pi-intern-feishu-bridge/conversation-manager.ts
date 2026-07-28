@@ -60,7 +60,27 @@ export class ConversationManager {
     this.state.sessions ||= {};
     this.state.models ||= {};
     this.state.workspaces ||= {};
+    this.pruneDeadSessions();
     this.loadSettingsDefault();
+  }
+
+  /**
+   * 启动时清理指向已删除会话文件的 key，以及它们的模型/工作区偏好。
+   * 这些 key 每个飞书会话一条、永不回收，长期运行后 state.json 里大半
+   * 都是早就不存在的会话。
+   */
+  private pruneDeadSessions() {
+    const dead = Object.entries(this.state.sessions)
+      .filter(([, file]) => !file || !existsSync(file))
+      .map(([key]) => key);
+    if (!dead.length) return;
+    for (const key of dead) {
+      delete this.state.sessions[key];
+      delete this.state.models?.[key];
+      delete this.state.workspaces?.[key];
+    }
+    debugLog("feishu.state.pruned", { count: dead.length });
+    writeJson(STATE_PATH, this.state);
   }
 
   /** Read global settings default model for fallback in getSelectedModel. */

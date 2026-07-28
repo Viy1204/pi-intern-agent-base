@@ -118,7 +118,9 @@ function analyzeText(text: string) {
   const lines = text.split(/\r?\n/);
   const lineCount = lines.filter((line) => line.trim()).length;
   const tableLineCount = lines.filter((line) => /^\s*\|.+\|\s*$/.test(line)).length;
-  const hasTableSeparator = lines.some((line) => /^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?\s*$/.test(line));
+  // GFM 允许分隔行只用一个连字符（| - | - |），之前要求 -{3,} 会把这类表格
+  // 判成 post，而 post 渲染不出表格，用户只会看到一堆竖线。
+  const hasTableSeparator = lines.some((line) => /^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)+\|?\s*$/.test(line));
   return {
     lineCount,
     looksLikeMarkdown: looksLikeMarkdown(text),

@@ -260,13 +260,13 @@ export default function feishuExtension(pi: ExtensionAPI) {
   }
 
   function buildDaemonEnv(bashPath: string) {
-    const env = { ...process.env, PI_FEISHU_DAEMON: "1" };
+    const env: Record<string, string | undefined> = { ...process.env, PI_FEISHU_DAEMON: "1" };
     const bashDir = bashPath.includes("\\") || bashPath.includes("/") ? dirname(bashPath) : "";
     if (!bashDir) return env;
 
     const existingPath = env.Path || env.PATH || "";
     const pathParts = existingPath.split(delimiter).filter(Boolean);
-    if (!pathParts.some((part) => part.toLowerCase() === bashDir.toLowerCase())) {
+    if (!pathParts.some((part: string) => part.toLowerCase() === bashDir.toLowerCase())) {
       pathParts.unshift(bashDir);
     }
     env.Path = pathParts.join(delimiter);

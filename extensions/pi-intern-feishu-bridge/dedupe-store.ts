@@ -1,6 +1,6 @@
-import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { dirname } from "node:path";
-import { DEDUPE_PATH, ensureRoot } from "./config.js";
+import { DEDUPE_PATH, ensureRoot, writeJson } from "./config.js";
 import { debugLog } from "./debug.js";
 
 const MESSAGE_TTL_MS = 24 * 60 * 60 * 1000;
@@ -94,7 +94,7 @@ function readStore(): DedupeStore {
 
 function writeStore(store: DedupeStore) {
   ensureRoot();
-  writeFileSync(DEDUPE_PATH, `${JSON.stringify(store, null, 2)}\n`, "utf8");
+  writeJson(DEDUPE_PATH, store);
 }
 
 function pruneExpired(messages: Record<string, DedupeRecord>, now: number) {

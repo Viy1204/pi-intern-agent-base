@@ -4,6 +4,7 @@ import type { ConversationManager } from "./conversation-manager.js";
 import { claimFeishuMessage, markFeishuMessage } from "./dedupe-store.js";
 import { debugLog } from "./debug.js";
 import { conversationKey, conversationLabel, normalizeForDedupe, parseBotCommand, parseMessageInput, pruneRecentMap } from "./messages.js";
+import { PendingQueue } from "./pending-queue.js";
 import { TaskStatusCard } from "./task-status-card.js";
 import type { FeishuBridgeStore } from "./bridge-store.js";
 import type { FeishuTransport } from "./transport.js";
@@ -11,19 +12,25 @@ import type { FeishuMessage } from "./types.js";
 
 const CONTENT_DEDUPE_TTL_MS = 5_000;
 
+type QueuedMessage = { msg: FeishuMessage; text: string; attachments: Array<{ kind: "image" | "file"; fileKey: string; fileName?: string }> };
+
 export class FeishuMessageHandler {
   private readonly seen = new Set<string>();
   private readonly recentContent = new Map<string, number>();
+  private readonly queue: PendingQueue<QueuedMessage>;
 
   constructor(
     private readonly conversations: ConversationManager,
     private readonly getTransport: () => FeishuTransport | undefined,
     private readonly bridgeStore?: FeishuBridgeStore,
-  ) {}
+  ) {
+    this.queue = new PendingQueue<QueuedMessage>((key, items) => this.runBatch(key, items));
+  }
 
   reset() {
     this.seen.clear();
     this.recentContent.clear();
+    this.queue.reset();
   }
 
   async handle(msg: FeishuMessage) {
@@ -70,45 +77,76 @@ export class FeishuMessageHandler {
         return;
       }
 
-      const model = await this.conversations.getSelectedModel(key);
-      const modelSupportsImage = Boolean(model && Array.isArray((model as any).input) && (model as any).input.includes("image"));
-      debugLog("feishu.handler.model", {
-        messageId: msg.messageId,
-        key,
-        model: model ? `${(model as any).provider}/${(model as any).id}` : undefined,
-        modelSupportsImage,
-      });
-
-      const processed = await this.processAttachments(msg, parsed.attachments, modelSupportsImage);
-      const { imageInputs, fileSections, downloadErrors, skippedImageCount } = processed;
-
-      if (skippedImageCount > 0 && imageInputs.length === 0 && !fileSections.length && !text.trim()) {
-        await transport.replyText(
-          msg.messageId,
-          "当前模型不支持图片解析。请先发送 /model 并切换到支持图片的模型后，再重发图片。",
-        );
-        await markFeishuMessage(msg.messageId, "replied");
-        return;
-      }
-
-      if (downloadErrors.length && !imageInputs.length && !fileSections.length && !text.trim()) {
-        await transport.replyText(msg.messageId, `没有可处理的内容：${downloadErrors.join("；")}`);
-        await markFeishuMessage(msg.messageId, "replied");
-        return;
-      }
-
-      const prompt = buildPrompt(msg, text, fileSections, imageInputs, skippedImageCount, modelSupportsImage, downloadErrors);
-      const status = new TaskStatusCard(key, msg.messageId, transport);
-      await status.start();
-      await this.conversations.promptWithImages(key, prompt, imageInputs, async (reply) => {
-        await transport.replyText(msg.messageId, reply);
-      }, status);
+      // 连发的消息先攒起来合并成一轮，避免 agent 只看到半个需求
+      this.queue.push(key, { msg, text, attachments: parsed.attachments });
       await markFeishuMessage(msg.messageId, "replied");
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       debugLog("feishu.handler.error", { messageId: msg.messageId, error: message });
       await markFeishuMessage(msg.messageId, "failed", message);
       await this.getTransport()?.replyText(msg.messageId, `Pi error: ${message}`);
+    }
+  }
+
+  /** 一批合并后的消息共用一个 run：附件全部收集，文本按顺序拼接。 */
+  private async runBatch(key: string, items: QueuedMessage[]) {
+    const transport = this.getTransport();
+    if (!transport || !items.length) return;
+    // 回复挂在最后一条消息上，符合"回答我最新那句"的直觉
+    const anchor = items[items.length - 1].msg;
+
+    this.queue.block(key);
+    try {
+      const model = await this.conversations.getSelectedModel(key);
+      const modelSupportsImage = Boolean(model && Array.isArray((model as any).input) && (model as any).input.includes("image"));
+      debugLog("feishu.handler.batch", {
+        key,
+        messages: items.length,
+        model: model ? `${(model as any).provider}/${(model as any).id}` : undefined,
+        modelSupportsImage,
+      });
+
+      const imageInputs: FeishuImageInput[] = [];
+      const fileSections: string[] = [];
+      const downloadErrors: string[] = [];
+      let skippedImageCount = 0;
+      for (const item of items) {
+        if (!item.attachments.length) continue;
+        const processed = await this.processAttachments(item.msg, item.attachments, modelSupportsImage);
+        imageInputs.push(...processed.imageInputs);
+        fileSections.push(...processed.fileSections);
+        downloadErrors.push(...processed.downloadErrors);
+        skippedImageCount += processed.skippedImageCount;
+      }
+
+      const text = items.map((item) => item.text.trim()).filter(Boolean).join("\n");
+
+      if (skippedImageCount > 0 && !imageInputs.length && !fileSections.length && !text) {
+        await transport.replyText(
+          anchor.messageId,
+          "当前模型不支持图片解析。请先发送 /model 并切换到支持图片的模型后，再重发图片。",
+        );
+        return;
+      }
+
+      if (downloadErrors.length && !imageInputs.length && !fileSections.length && !text) {
+        await transport.replyText(anchor.messageId, `没有可处理的内容：${downloadErrors.join("；")}`);
+        return;
+      }
+
+      const prompt = buildPrompt(anchor, text, fileSections, imageInputs, skippedImageCount, modelSupportsImage, downloadErrors);
+      const status = new TaskStatusCard(key, anchor.messageId, transport);
+      await status.start();
+      await this.conversations.promptWithImages(key, prompt, imageInputs, async (reply) => {
+        await transport.replyText(anchor.messageId, reply);
+      }, status);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      debugLog("feishu.handler.batch_error", { key, error: message });
+      await transport.replyText(anchor.messageId, `Pi error: ${message}`);
+    } finally {
+      // 解锁后如果 run 期间又攒了消息，会重新计时再合并成下一轮
+      this.queue.unblock(key);
     }
   }
 
@@ -199,7 +237,7 @@ export class FeishuMessageHandler {
             "图片下载超时",
           );
           const mimeType = detectImageMime(resource.bytes, resource.mimeType);
-          if (!isSupportedImageMime(mimeType)) {
+          if (!mimeType || !isSupportedImageMime(mimeType)) {
             downloadErrors.push("图片格式暂不支持（仅支持 png/jpg/webp）");
             continue;
           }

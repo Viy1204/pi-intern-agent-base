@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  test:
+    # 桥接扩展有大量平台分支（Git Bash 探测、进程枚举、路径护栏），
+    # 三个平台都要跑，否则一次改动很容易只在作者的机器上是对的。
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run test:unit
+
+  pack:
+    # 打包完整性检查（skill 清单、AGENTS 模板、HR 黑名单）只有 PowerShell 脚本，
+    # 跑在 Windows 上就够。
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm run test:pack

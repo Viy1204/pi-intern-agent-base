@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync, chmodSync, rmSync } from "node:fs";
+import { closeSync, existsSync, fsyncSync, mkdirSync, openSync, readFileSync, renameSync, writeFileSync, chmodSync, rmSync, writeSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import type { CardActionMode, Domain, FeishuConfig, GroupPolicy } from "./types.js";
@@ -41,10 +41,32 @@ export function readJson<T>(path: string, fallback: T): T {
   }
 }
 
+/**
+ * 原子写：先写临时文件并 fsync，再 rename 覆盖。进程在写入中途被杀时，
+ * 目标文件要么是旧内容要么是新内容，不会留下截断的半个 JSON——之前
+ * 直接 writeFileSync，被 taskkill 打断就会让整份配置/状态变成不可解析。
+ */
 export function writeJson(path: string, value: unknown) {
   mkdirSync(dirname(path), { recursive: true });
-  writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`, "utf8");
-  try { chmodSync(path, 0o600); } catch {}
+  const payload = `${JSON.stringify(value, null, 2)}\n`;
+  const tmpPath = `${path}.tmp-${process.pid}`;
+  try {
+    const fd = openSync(tmpPath, "w");
+    try {
+      writeSync(fd, payload, 0, "utf8");
+      fsyncSync(fd);
+    } finally {
+      closeSync(fd);
+    }
+    try { chmodSync(tmpPath, 0o600); } catch {}
+    renameSync(tmpPath, path);
+  } catch (error) {
+    try { rmSync(tmpPath, { force: true }); } catch {}
+    // rename 在个别 Windows 场景（杀毒/索引占用）会失败，退回直接写，
+    // 丢原子性也比整个功能不可用好。
+    writeFileSync(path, payload, "utf8");
+    try { chmodSync(path, 0o600); } catch {}
+  }
 }
 
 export function removePath(path: string) {
