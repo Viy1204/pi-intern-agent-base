@@ -142,6 +142,14 @@ HR 授权同事可额外安装：
 pi install git:github.com/Viy1204/pi-intern-hr-pack@v0.1.1
 ```
 
+需要 AI 面试官（机器人真身加入视频会议做语音面试）的同事可额外安装：
+
+```bash
+pi install git:github.com/Viy1204/feishu-interview-agent
+```
+
+装完后在飞书里对 Pi 说"让面试官进会议 <9位会议号>"即可。面试官可复用桥接的飞书应用凭证（需补开 vc 入会权限并发布版本），详见该仓库 README。
+
 ## 常见问题
 
 ### pi 命令不存在
